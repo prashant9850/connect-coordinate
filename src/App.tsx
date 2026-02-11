@@ -13,6 +13,7 @@ import CreateProgram from "./pages/CreateProgram";
 import Volunteers from "./pages/Volunteers";
 import NGOProfile from "./pages/NGOProfile";
 import NotFound from "./pages/NotFound";
+import NGOs from "./pages/NGOs";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/create-program" element={<CreateProgram />} />
           <Route path="/volunteers" element={<Volunteers />} />
           <Route path="/ngo/:id" element={<NGOProfile />} />
+          <Route path="/ngos" element={<NGOs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

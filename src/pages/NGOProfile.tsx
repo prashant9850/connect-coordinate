@@ -1,35 +1,37 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Header } from '@/components/Header';
-import { EmergencyModal } from '@/components/EmergencyModal';
-import { ProgramCard } from '@/components/ProgramCard';
-import { Button } from '@/components/ui/button';
-import { 
-  ArrowLeft, 
-  MapPin, 
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Header } from "@/components/Header";
+import { EmergencyModal } from "@/components/EmergencyModal";
+import { ProgramCard } from "@/components/ProgramCard";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowLeft,
+  MapPin,
   Users,
   Building2,
   CheckCircle,
   Clock,
   Mail,
-  Globe
-} from 'lucide-react';
-import { getNGOById, mockPrograms } from '@/data/mockData';
+  Globe,
+} from "lucide-react";
+import { getNGOById, mockPrograms } from "@/data/mockData";
 
 export default function NGOProfile() {
   const { id } = useParams();
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
-  const ngo = getNGOById(id || 'ngo-1') || getNGOById('ngo-1');
-  const ngoPrograms = mockPrograms.filter(p => p.ngoId === ngo?.id);
-  const activePrograms = ngoPrograms.filter(p => p.status === 'active');
-  const completedPrograms = ngoPrograms.filter(p => p.status === 'completed');
+  const ngo = getNGOById(id || "ngo-1") || getNGOById("ngo-1");
+  const ngoPrograms = mockPrograms.filter((p) => p.ngoId === ngo?.id);
+  const activePrograms = ngoPrograms.filter((p) => p.status === "active");
+  const completedPrograms = ngoPrograms.filter((p) => p.status === "completed");
 
   if (!ngo) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">NGO not found</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">
+            NGO not found
+          </h1>
           <Button asChild>
             <Link to="/dashboard">Back to Dashboard</Link>
           </Button>
@@ -45,9 +47,9 @@ export default function NGOProfile() {
       <main className="container mx-auto px-4 py-6">
         {/* Back button */}
         <Button variant="ghost" size="sm" className="mb-4" asChild>
-          <Link to="/dashboard">
+          <Link to="/NGOs">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            Back
           </Link>
         </Button>
 
@@ -64,7 +66,9 @@ export default function NGOProfile() {
             {/* Info */}
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold text-foreground">{ngo.name}</h1>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {ngo.name}
+                </h1>
                 {ngo.verified && (
                   <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-success/10 text-success">
                     <CheckCircle className="h-3 w-3" />
@@ -80,7 +84,7 @@ export default function NGOProfile() {
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  {ngo.areaOfOperation.join(', ')}
+                  {ngo.areaOfOperation.join(", ")}
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <Users className="h-4 w-4" />
@@ -96,11 +100,15 @@ export default function NGOProfile() {
             {/* Stats */}
             <div className="flex md:flex-col gap-4 md:gap-2 md:text-right">
               <div>
-                <p className="text-3xl font-bold text-foreground">{ngo.activePrograms}</p>
+                <p className="text-3xl font-bold text-foreground">
+                  {ngo.activePrograms}
+                </p>
                 <p className="text-sm text-muted-foreground">Active Programs</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-foreground">{ngo.pastPrograms}</p>
+                <p className="text-3xl font-bold text-foreground">
+                  {ngo.pastPrograms}
+                </p>
                 <p className="text-sm text-muted-foreground">Total Programs</p>
               </div>
             </div>
@@ -109,10 +117,12 @@ export default function NGOProfile() {
 
         {/* Active Programs */}
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-foreground mb-4">Active Programs</h2>
+          <h2 className="text-xl font-bold text-foreground mb-4">
+            Active Programs
+          </h2>
           {activePrograms.length > 0 ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activePrograms.map(program => (
+              {activePrograms.map((program) => (
                 <ProgramCard key={program.id} program={program} />
               ))}
             </div>
@@ -126,33 +136,84 @@ export default function NGOProfile() {
 
         {/* Past Programs */}
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-4">Program History</h2>
+          <h2 className="text-xl font-bold text-foreground mb-4">
+            Program History
+          </h2>
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Program</th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Location</th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Volunteers</th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">
+                      Program
+                    </th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">
+                      Type
+                    </th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">
+                      Location
+                    </th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">
+                      Volunteers
+                    </th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">
+                      Date
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {/* Generate some mock historical data */}
                   {[
-                    { title: 'Flood Relief 2023', type: 'Flood', location: 'Houston, TX', volunteers: 85, date: 'Oct 2023' },
-                    { title: 'Tornado Response', type: 'Tornado', location: 'Oklahoma City, OK', volunteers: 42, date: 'Aug 2023' },
-                    { title: 'Wildfire Support', type: 'Wildfire', location: 'Sacramento, CA', volunteers: 120, date: 'Jul 2023' },
-                    { title: 'Hurricane Prep', type: 'Hurricane', location: 'Tampa, FL', volunteers: 65, date: 'Jun 2023' },
-                    { title: 'Earthquake Relief', type: 'Earthquake', location: 'Los Angeles, CA', volunteers: 95, date: 'Mar 2023' },
+                    {
+                      title: "Flood Relief 2023",
+                      type: "Flood",
+                      location: "Houston, TX",
+                      volunteers: 85,
+                      date: "Oct 2023",
+                    },
+                    {
+                      title: "Tornado Response",
+                      type: "Tornado",
+                      location: "Oklahoma City, OK",
+                      volunteers: 42,
+                      date: "Aug 2023",
+                    },
+                    {
+                      title: "Wildfire Support",
+                      type: "Wildfire",
+                      location: "Sacramento, CA",
+                      volunteers: 120,
+                      date: "Jul 2023",
+                    },
+                    {
+                      title: "Hurricane Prep",
+                      type: "Hurricane",
+                      location: "Tampa, FL",
+                      volunteers: 65,
+                      date: "Jun 2023",
+                    },
+                    {
+                      title: "Earthquake Relief",
+                      type: "Earthquake",
+                      location: "Los Angeles, CA",
+                      volunteers: 95,
+                      date: "Mar 2023",
+                    },
                   ].map((item, index) => (
-                    <tr key={index} className="border-t border-border hover:bg-muted/30 transition-colors">
-                      <td className="p-4 font-medium text-foreground">{item.title}</td>
+                    <tr
+                      key={index}
+                      className="border-t border-border hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="p-4 font-medium text-foreground">
+                        {item.title}
+                      </td>
                       <td className="p-4 text-muted-foreground">{item.type}</td>
-                      <td className="p-4 text-muted-foreground">{item.location}</td>
-                      <td className="p-4 text-muted-foreground">{item.volunteers}</td>
+                      <td className="p-4 text-muted-foreground">
+                        {item.location}
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        {item.volunteers}
+                      </td>
                       <td className="p-4 text-muted-foreground">{item.date}</td>
                     </tr>
                   ))}
@@ -163,8 +224,8 @@ export default function NGOProfile() {
         </div>
       </main>
 
-      <EmergencyModal 
-        open={emergencyModalOpen} 
+      <EmergencyModal
+        open={emergencyModalOpen}
         onOpenChange={setEmergencyModalOpen}
       />
     </div>

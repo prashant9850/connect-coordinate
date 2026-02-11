@@ -1,27 +1,28 @@
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  MapPin, 
-  Users, 
-  Building2, 
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  MapPin,
+  Users,
+  Building2,
   LogIn,
   Menu,
   X,
-  AlertTriangle
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
-import { EmergencyButton } from './EmergencyButton';
+  AlertTriangle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { EmergencyButton } from "./EmergencyButton";
 
 interface HeaderProps {
   onEmergencyClick?: () => void;
 }
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/programs', label: 'Programs', icon: MapPin },
-  { href: '/volunteers', label: 'Volunteers', icon: Users },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/programs", label: "Programs", icon: MapPin },
+  { href: "/volunteers", label: "Volunteers", icon: Users },
+  { href: "/ngos", label: "NGOs", icon: Building2 },
 ];
 
 export function Header({ onEmergencyClick }: HeaderProps) {
@@ -49,10 +50,10 @@ export function Header({ onEmergencyClick }: HeaderProps) {
                 key={href}
                 to={href}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                   location.pathname === href
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -64,8 +65,8 @@ export function Header({ onEmergencyClick }: HeaderProps) {
           {/* Right actions */}
           <div className="flex items-center gap-3">
             {/* Mini emergency button */}
-            <EmergencyButton 
-              size="default" 
+            <EmergencyButton
+              size="default"
               onClick={onEmergencyClick}
               showPulse={false}
             />
@@ -107,10 +108,10 @@ export function Header({ onEmergencyClick }: HeaderProps) {
                   to={href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    "flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
                     location.pathname === href
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted",
                   )}
                 >
                   <Icon className="h-4 w-4" />
