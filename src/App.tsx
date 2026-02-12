@@ -14,31 +14,34 @@ import Volunteers from "./pages/Volunteers";
 import NGOProfile from "./pages/NGOProfile";
 import NotFound from "./pages/NotFound";
 import NGOs from "./pages/NGOs";
+import { AuthProvider } from "@/context/AuthContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/programs" element={<Programs />} />
-          <Route path="/program/:id" element={<ProgramDetail />} />
-          <Route path="/create-program" element={<CreateProgram />} />
-          <Route path="/volunteers" element={<Volunteers />} />
-          <Route path="/ngo/:id" element={<NGOProfile />} />
-          <Route path="/ngos" element={<NGOs />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/programs" element={<Programs />} />
+            <Route path="/program/:id" element={<ProgramDetail />} />
+            <Route path="/create-program" element={<CreateProgram />} />
+            <Route path="/volunteers" element={<Volunteers />} />
+            <Route path="/ngo/:id" element={<NGOProfile />} />
+            <Route path="/ngos" element={<NGOs />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
