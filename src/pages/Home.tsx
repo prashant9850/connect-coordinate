@@ -4,6 +4,8 @@ import { EmergencyButton } from "@/components/EmergencyButton";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { ProgramCard } from "@/components/ProgramCard";
 import { DisasterMap } from "@/components/DisasterMap";
+import { Flame, Ambulance, Phone } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Shield,
@@ -128,11 +130,55 @@ export default function Home() {
                   onClick={() => setEmergencyModalOpen(true)}
                 />
               </div>
+
               <p className="mt-6 text-primary-foreground/60 text-center text-sm md:text-base">
                 No registration required
                 <br />
                 One tap sends your location
               </p>
+
+              {/* 🚨 QUICK EMERGENCY CALL BUTTONS */}
+              <div className="grid grid-cols-2 gap-3 mt-6 w-full max-w-xs">
+                <a href="tel:100" className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-black"
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Police (100)
+                  </Button>
+                </a>
+
+                <a href="tel:101" className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-black"
+                  >
+                    <Flame className="mr-2 h-4 w-4" />
+                    Fire (101)
+                  </Button>
+                </a>
+
+                <a href="tel:102" className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-black"
+                  >
+                    <Ambulance className="mr-1 h-4 w-4" />
+                    Ambulance (102)
+                  </Button>
+                </a>
+
+                <a href="tel:1091" className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-black"
+                  >
+                    <Phone className="mr-2 h-4 w-4" />
+                    Women (1091)
+                  </Button>
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -230,7 +276,7 @@ export default function Home() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
+            <Button size="lg" variant="outline" className="text-black" asChild>
               <Link to="/programs">View Active Programs</Link>
             </Button>
           </div>

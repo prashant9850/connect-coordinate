@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { EmergencyButton } from "@/components/EmergencyButton";
@@ -7,6 +7,9 @@ import { SeverityBadge } from "@/components/SeverityBadge";
 import { VolunteerList } from "@/components/VolunteerList";
 import { ResourceRequestCard } from "@/components/ResourceRequestCard";
 import { DisasterMap } from "@/components/DisasterMap";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,27 +25,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+
 import {
   ArrowLeft,
   MapPin,
   Clock,
-  Building2,
-  Users,
   UserPlus,
   Package,
   Check,
-  AlertTriangle,
 } from "lucide-react";
-import {
-  getProgramById,
-  getVolunteersByProgram,
-  getResourceRequestsByProgram,
-  mockVolunteers,
-} from "@/data/mockData";
+
 import type { ResourceType } from "@/types";
 
-const resourceOptions: { value: ResourceType; label: string }[] = [
+const resourceOptions = [
   { value: "rope", label: "Rope" },
   { value: "torch", label: "Torch/Flashlight" },
   { value: "medical_kit", label: "Medical Kit" },
@@ -56,53 +51,119 @@ const resourceOptions: { value: ResourceType; label: string }[] = [
 export default function ProgramDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [program, setProgram] = useState<any | null>(null);
+  const [volunteers, setVolunteers] = useState<any[]>([]);
+  const [resourceRequests, setResourceRequests] = useState<any[]>([]);
+
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
   const [resourceModalOpen, setResourceModalOpen] = useState(false);
   const [joined, setJoined] = useState(false);
+
   const [resourceForm, setResourceForm] = useState({
     type: "" as ResourceType | "",
-    quantity: 1,
-    urgency: "medium" as "low" | "medium" | "high",
   });
 
-  const program = getProgramById(id || "");
-  const volunteers = getVolunteersByProgram(id || "");
-  const resourceRequests = getResourceRequestsByProgram(id || "");
+  // ✅ FETCH DATA
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+
+      // PROGRAM
+      const { data: programData } = await supabase
+        .from("programs")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (programData) {
+        // ⭐ Format program for UI + map
+        const formatted = {
+          ...programData,
+          title: programData.title || programData.disaster_type,
+          location: {
+            lat: programData.lat,
+            lng: programData.lng,
+            name: programData.location_name || "Unknown location",
+          },
+        };
+
+        setProgram(formatted);
+      }
+
+      // VOLUNTEERS
+      const { data: pv } = await supabase
+        .from("program_volunteers")
+        .select("volunteer_id")
+        .eq("program_id", id);
+
+      if (pv?.length) {
+        const ids = pv.map((v) => v.volunteer_id);
+
+        const { data: volunteersData } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", ids);
+
+        if (volunteersData) {
+          setVolunteers(
+            volunteersData.map((v) => ({
+              id: v.id,
+              name: v.name,
+              phone: v.phone,
+              location: v.location,
+              skills: [],
+              availability: "available",
+            })),
+          );
+        }
+      }
+
+      // RESOURCE REQUESTS
+      const { data: rr } = await supabase
+        .from("resource_requests")
+        .select("*")
+        .eq("program_id", id);
+
+      if (rr) setResourceRequests(rr);
+    };
+
+    fetchData();
+  }, [id]);
 
   if (!program) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">
-            Program not found
-          </h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mb-4"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        </div>
+        <h1 className="text-2xl font-bold">Program not found</h1>
       </div>
     );
   }
 
-  const handleJoinProgram = () => {
+  // JOIN PROGRAM
+  const handleJoinProgram = async () => {
+    if (!user) return;
+
+    await supabase.from("program_volunteers").insert({
+      program_id: program.id,
+      volunteer_id: user.id,
+    });
+
     setJoined(true);
   };
 
-  const handleResourceRequest = () => {
-    // In a real app, this would submit the request
-    setResourceModalOpen(false);
-    setResourceForm({ type: "", quantity: 1, urgency: "medium" });
-  };
+  // RESOURCE REQUEST
+  const handleResourceRequest = async () => {
+    if (!user) return;
 
-  const handleProvideResource = (requestId: string) => {
-    // In a real app, this would update the request status
-    console.log("Providing resource:", requestId);
+    await supabase.from("resource_requests").insert({
+      program_id: program.id,
+      requested_by: user.id,
+      item_name: resourceForm.type,
+    });
+
+    setResourceModalOpen(false);
+    setResourceForm({ type: "" });
   };
 
   return (
@@ -110,7 +171,7 @@ export default function ProgramDetail() {
       <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
 
       <main className="container mx-auto px-4 py-6">
-        {/* Back button */}
+        {/* BACK BUTTON */}
         <Button
           variant="ghost"
           size="sm"
@@ -121,136 +182,100 @@ export default function ProgramDetail() {
           Back
         </Button>
 
-        {/* Program header */}
+        {/* HEADER */}
         <div className="bg-card border border-border rounded-xl p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex flex-col md:flex-row justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <SeverityBadge severity={program.severity} />
+
                 <span className="text-sm text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
-                  {program.disasterType}
+                  {program.disaster_type}
                 </span>
-                <span className="text-sm text-muted-foreground px-2 py-0.5 rounded-full bg-success/10 text-success">
+
+                <span className="text-sm px-2 py-0.5 rounded-full bg-success/10 text-success">
                   {program.status}
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+
+              {/* ⭐ TITLE */}
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">
                 {program.title}
               </h1>
-              <p className="text-muted-foreground mb-4 max-w-2xl">
-                {program.description}
-              </p>
 
-              <div className="flex flex-wrap gap-4 text-sm">
+              {/* ⭐ LOCATION NAME */}
+              <div className="flex gap-4 text-sm">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  {program.location.name}
+                  {program.location?.name}
                 </div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Building2 className="h-4 w-4" />
-                  {program.ngoName}
-                </div>
+
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  Started {new Date(program.createdAt).toLocaleDateString()}
+                  Started {new Date(program.created_at).toLocaleDateString()}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 md:items-end">
-              <EmergencyButton
-                size="large"
-                onClick={() => setEmergencyModalOpen(true)}
-              />
-              <p className="text-xs text-muted-foreground text-center">
-                Emergency in
-                <br />
-                this area?
-              </p>
-            </div>
+            <EmergencyButton
+              size="large"
+              onClick={() => setEmergencyModalOpen(true)}
+            />
           </div>
 
-          {/* Required skills */}
+          {/* REQUIRED SKILLS */}
           <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-sm font-medium text-foreground mb-2">
-              Required Skills
-            </p>
+            <p className="text-sm font-medium mb-2">Required Skills</p>
+
             <div className="flex flex-wrap gap-2">
-              {program.requiredSkills.map((skill) => (
+              {(program.required_skills || []).map((skill: string) => (
                 <span
                   key={skill}
-                  className="text-sm px-3 py-1 rounded-full bg-secondary text-secondary-foreground capitalize"
+                  className="text-sm px-3 py-1 rounded-full bg-secondary"
                 >
-                  {skill.replace("_", " ")}
+                  {skill}
                 </span>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Main content grid */}
+        {/* MAIN GRID */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left column - Map and stats */}
+          {/* MAP */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Mini map */}
             <div className="bg-card border border-border rounded-xl p-4">
-              <h2 className="font-semibold text-foreground mb-4">
-                Program Area
-              </h2>
+              <h2 className="font-semibold mb-4">Program Area</h2>
+
               <DisasterMap
                 programs={[program]}
-                volunteers={mockVolunteers.filter(
-                  (v) => v.currentProgramId === program.id,
-                )}
+                volunteers={[]}
                 className="h-[250px]"
                 showControls={false}
                 interactive={false}
               />
             </div>
 
-            {/* Volunteer progress */}
+            {/* JOIN */}
             <div className="bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-foreground">
-                  Volunteer Progress
-                </h2>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">
-                    {program.volunteerCount} / {program.maxVolunteers}
-                  </span>
-                </div>
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden mb-4">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{
-                    width: `${(program.volunteerCount / program.maxVolunteers) * 100}%`,
-                  }}
-                />
-              </div>
-
               {!joined ? (
                 <Button className="w-full" onClick={handleJoinProgram}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Join This Program
                 </Button>
               ) : (
-                <div className="flex items-center justify-center gap-2 py-3 rounded-lg bg-success/10 text-success">
-                  <Check className="h-5 w-5" />
-                  <span className="font-medium">
-                    You've joined this program
-                  </span>
+                <div className="text-center py-3 rounded-lg bg-success/10 text-success">
+                  <Check className="inline h-5 w-5 mr-2" />
+                  You've joined this program
                 </div>
               )}
             </div>
 
-            {/* Resource requests */}
+            {/* RESOURCES */}
             <div className="bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-foreground">
-                  Resource Requests
-                </h2>
+              <div className="flex justify-between mb-4">
+                <h2 className="font-semibold">Resource Requests</h2>
+
                 <Button
                   size="sm"
                   onClick={() => setResourceModalOpen(true)}
@@ -262,52 +287,32 @@ export default function ProgramDetail() {
               </div>
 
               {resourceRequests.length > 0 ? (
-                <div className="space-y-3">
-                  {resourceRequests.map((request) => (
-                    <ResourceRequestCard
-                      key={request.id}
-                      request={request}
-                      onProvide={handleProvideResource}
-                      showProvideButton={joined}
-                    />
-                  ))}
-                </div>
+                resourceRequests.map((r) => (
+                  <ResourceRequestCard key={r.id} request={r} />
+                ))
               ) : (
-                <div className="text-center py-8">
-                  <Package className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
-                  <p className="text-muted-foreground">
-                    No resource requests yet
-                  </p>
-                </div>
+                <p className="text-muted-foreground text-center py-6">
+                  No resource requests yet
+                </p>
               )}
             </div>
           </div>
 
-          {/* Right column - Volunteers */}
-          <div className="space-y-6">
-            <div className="bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-foreground">
-                  Active Volunteers
-                </h2>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <span className="w-2 h-2 rounded-full bg-success status-pulse" />
-                  Live
-                </div>
-              </div>
-              <VolunteerList volunteers={volunteers} maxDisplay={8} />
-            </div>
+          {/* VOLUNTEERS */}
+          <div className="bg-card border border-border rounded-xl p-4">
+            <h2 className="font-semibold mb-4">Active Volunteers</h2>
+
+            <VolunteerList volunteers={volunteers} maxDisplay={8} />
           </div>
         </div>
       </main>
 
-      {/* Emergency Modal */}
       <EmergencyModal
         open={emergencyModalOpen}
         onOpenChange={setEmergencyModalOpen}
       />
 
-      {/* Resource Request Modal */}
+      {/* RESOURCE MODAL */}
       <Dialog open={resourceModalOpen} onOpenChange={setResourceModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -315,84 +320,31 @@ export default function ProgramDetail() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Resource Type</Label>
-              <Select
-                value={resourceForm.type}
-                onValueChange={(value) =>
-                  setResourceForm({
-                    ...resourceForm,
-                    type: value as ResourceType,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select resource type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {resourceOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Label>Resource Type</Label>
 
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                min={1}
-                value={resourceForm.quantity}
-                onChange={(e) =>
-                  setResourceForm({
-                    ...resourceForm,
-                    quantity: parseInt(e.target.value) || 1,
-                  })
-                }
-              />
-            </div>
+            <Select
+              value={resourceForm.type}
+              onValueChange={(v) =>
+                setResourceForm({ type: v as ResourceType })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select resource type" />
+              </SelectTrigger>
 
-            <div className="space-y-2">
-              <Label>Urgency</Label>
-              <Select
-                value={resourceForm.urgency}
-                onValueChange={(value) =>
-                  setResourceForm({
-                    ...resourceForm,
-                    urgency: value as "low" | "medium" | "high",
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High - Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <SelectContent>
+                {resourceOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setResourceModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleResourceRequest}
-              disabled={!resourceForm.type}
-            >
-              Submit Request
-            </Button>
-          </div>
+          <Button onClick={handleResourceRequest} disabled={!resourceForm.type}>
+            Submit Request
+          </Button>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,12 +1,18 @@
 import { cn } from "@/lib/utils";
 import type { Volunteer } from "@/types";
 import { User, Phone, MapPin } from "lucide-react";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface VolunteerListProps {
   volunteers: Volunteer[];
   maxDisplay?: number;
   className?: string;
-  limited?: boolean; // used to hide details for guests
+  limited?: boolean;
 }
 
 const availabilityStyles = {
@@ -26,7 +32,7 @@ export function VolunteerList({
   volunteers,
   maxDisplay = 5,
   className,
-  limited = false, // default false
+  limited = false,
 }: VolunteerListProps) {
   const displayedVolunteers = volunteers.slice(0, maxDisplay);
   const remainingCount = volunteers.length - maxDisplay;
@@ -111,18 +117,38 @@ export function VolunteerList({
           {/* Contact */}
           {!limited && (
             <div className="flex-shrink-0 flex gap-2">
-              <button
-                className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
-                title="Call"
-              >
-                <Phone className="h-4 w-4" />
-              </button>
-              <button
-                className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
-                title="Location"
-              >
-                <MapPin className="h-4 w-4" />
-              </button>
+              {volunteer.phone && (
+                <a href={`tel:${volunteer.phone}`}>
+                  <button
+                    className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
+                    title="Call"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </button>
+                </a>
+              )}
+
+              {volunteer.location && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
+                        title="Location"
+                      >
+                        <MapPin className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {volunteer.location
+                        ? typeof volunteer.location === "string"
+                          ? volunteer.location
+                          : `${volunteer.location.lat}, ${volunteer.location.lng}`
+                        : "Location not available"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           )}
         </div>

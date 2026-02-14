@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { ProgramCard } from "@/components/ProgramCard";
@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { Search, Filter, Plus, Grid3X3, List } from "lucide-react";
-import { mockPrograms } from "@/data/mockData";
+import { Search, Plus, Grid3X3, List } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { Link } from "react-router-dom";
 import type { SeverityLevel } from "@/types";
 
 export default function Programs() {
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
   const { user } = useAuth();
+
+  const [programs, setPrograms] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [severityFilter, setSeverityFilter] = useState<SeverityLevel | "all">(
@@ -21,13 +23,47 @@ export default function Programs() {
   );
   const [statusFilter, setStatusFilter] = useState<"active" | "all">("active");
 
-  const filteredPrograms = mockPrograms.filter((p) => {
+  // ✅ FETCH FROM SUPABASE + FORMAT DATA
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      const { data } = await supabase
+        .from("programs")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        const formatted = data.map((p) => ({
+          ...p,
+          title: p.title || p.disaster_type,
+          disasterType: p.disaster_type,
+
+          location: {
+            name: p.location_name || "Unknown location",
+          },
+
+          requiredSkills: p.required_skills || [],
+          volunteerCount: 0,
+          maxVolunteers: p.max_volunteers || 50,
+        }));
+
+        setPrograms(formatted);
+      }
+    };
+
+    fetchPrograms();
+  }, []);
+
+  // ✅ FILTER LOGIC
+  const filteredPrograms = programs.filter((p) => {
     const matchesSearch =
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.location.name.toLowerCase().includes(searchQuery.toLowerCase());
+      p.disaster_type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      false;
+
     const matchesSeverity =
       severityFilter === "all" || p.severity === severityFilter;
+
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+
     return matchesSearch && matchesSeverity && matchesStatus;
   });
 
@@ -45,6 +81,7 @@ export default function Programs() {
               Browse and join active disaster relief programs
             </p>
           </div>
+
           {user && (
             <Button size="sm" asChild>
               <Link to="/create-program">
@@ -68,7 +105,7 @@ export default function Programs() {
           </div>
 
           <div className="flex gap-2">
-            {/* Severity filter */}
+            {/* Severity */}
             <div className="flex rounded-lg border border-border overflow-hidden">
               {(["all", "red", "orange", "yellow"] as const).map((severity) => (
                 <button
@@ -88,7 +125,7 @@ export default function Programs() {
               ))}
             </div>
 
-            {/* Status filter */}
+            {/* Status */}
             <div className="flex rounded-lg border border-border overflow-hidden">
               <button
                 onClick={() => setStatusFilter("active")}
@@ -114,7 +151,7 @@ export default function Programs() {
               </button>
             </div>
 
-            {/* View mode */}
+            {/* View Mode */}
             <div className="flex rounded-lg border border-border overflow-hidden">
               <button
                 onClick={() => setViewMode("grid")}
@@ -142,13 +179,13 @@ export default function Programs() {
           </div>
         </div>
 
-        {/* Results count */}
+        {/* Count */}
         <p className="text-sm text-muted-foreground mb-4">
           Showing {filteredPrograms.length} program
           {filteredPrograms.length !== 1 ? "s" : ""}
         </p>
 
-        {/* Programs grid/list */}
+        {/* Programs */}
         {filteredPrograms.length > 0 ? (
           <div
             className={cn(
