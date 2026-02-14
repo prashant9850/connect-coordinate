@@ -215,7 +215,7 @@ export default function Programs() {
                 setStatusFilter("active");
               }}
             >
-              Clear filters
+              Clear filtersfddd
             </Button>
           </div>
         )}

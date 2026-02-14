@@ -221,6 +221,26 @@ export default function ProgramDetail() {
               size="large"
               onClick={() => setEmergencyModalOpen(true)}
             />
+            {user?.id === program.created_by && program.status === "active" && (
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  const confirmEnd = confirm(
+                    "Are you sure you want to end this program?",
+                  );
+                  if (!confirmEnd) return;
+
+                  await supabase
+                    .from("programs")
+                    .update({ status: "completed" })
+                    .eq("id", program.id);
+
+                  navigate("/programs");
+                }}
+              >
+                End Program
+              </Button>
+            )}
           </div>
 
           {/* REQUIRED SKILLS */}

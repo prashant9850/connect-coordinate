@@ -89,34 +89,43 @@ export default function CreateProgram() {
     }));
   };
 
-  // ✅ REPLACED ONLY THIS FUNCTION
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!user) return;
 
     setIsSubmitting(true);
 
+    // Temporary coordinates until map picker added
     const lat = 18.5204;
     const lng = 73.8567;
 
     const { error } = await supabase.from("programs").insert({
-      title: formData.title,
-      description: formData.description,
+      title: formData.title, // ✅ ADD
+      description: formData.description, // ✅ ADD
       disaster_type: formData.disasterType,
       severity: formData.severity,
       status: "active",
+
+      location_name: formData.locationName, // ✅ ADD
+
       lat,
       lng,
-      location_name: formData.locationName,
-      max_volunteers: formData.maxVolunteers,
+
+      max_volunteers: formData.maxVolunteers, // ✅ ADD
+
       created_by: user.id,
       required_skills: formData.requiredSkills,
     });
 
     setIsSubmitting(false);
 
-    if (!error) navigate("/dashboard");
-    else alert("Failed to create program");
+    if (!error) {
+      navigate("/dashboard");
+    } else {
+      alert("Failed to create program");
+      console.error(error);
+    }
   };
 
   const isValid =
