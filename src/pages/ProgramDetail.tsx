@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { EmergencyButton } from "@/components/EmergencyButton";
 import { EmergencyModal } from "@/components/EmergencyModal";
@@ -56,6 +56,7 @@ export default function ProgramDetail() {
   const [program, setProgram] = useState<any | null>(null);
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [resourceRequests, setResourceRequests] = useState<any[]>([]);
+  const [creatorName, setCreatorName] = useState<string>("");
 
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
   const [resourceModalOpen, setResourceModalOpen] = useState(false);
@@ -78,7 +79,6 @@ export default function ProgramDetail() {
         .single();
 
       if (programData) {
-        // ⭐ Format program for UI + map
         const formatted = {
           ...programData,
           title: programData.title || programData.disaster_type,
@@ -90,6 +90,17 @@ export default function ProgramDetail() {
         };
 
         setProgram(formatted);
+
+        // ⭐ FETCH CREATOR NAME
+        if (programData.created_by) {
+          const { data: creator } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", programData.created_by)
+            .single();
+
+          if (creator) setCreatorName(creator.name);
+        }
       }
 
       // VOLUNTEERS
@@ -198,13 +209,13 @@ export default function ProgramDetail() {
                 </span>
               </div>
 
-              {/* ⭐ TITLE */}
+              {/* TITLE */}
               <h1 className="text-2xl md:text-3xl font-bold mb-2">
                 {program.title}
               </h1>
 
-              {/* ⭐ LOCATION NAME */}
-              <div className="flex gap-4 text-sm">
+              {/* LOCATION + DATE + CREATOR */}
+              <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <MapPin className="h-4 w-4" />
                   {program.location?.name}
@@ -214,6 +225,12 @@ export default function ProgramDetail() {
                   <Clock className="h-4 w-4" />
                   Started {new Date(program.created_at).toLocaleDateString()}
                 </div>
+
+                {creatorName && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    👤 By {creatorName}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -221,6 +238,8 @@ export default function ProgramDetail() {
               size="large"
               onClick={() => setEmergencyModalOpen(true)}
             />
+
+            {/* END PROGRAM BUTTON (only creator) */}
             {user?.id === program.created_by && program.status === "active" && (
               <Button
                 variant="destructive"

@@ -28,36 +28,69 @@ export default function Dashboard() {
   >();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ✅ FETCH PROGRAMS + FORMAT FOR MAP
+  const [totalVolunteers, setTotalVolunteers] = useState(0);
+  const [partnerNGOs, setPartnerNGOs] = useState(0);
+
+  // ✅ FETCH EVERYTHING FROM SUPABASE
   useEffect(() => {
-    const fetchPrograms = async () => {
-      const { data } = await supabase.from("programs").select("*");
+    const fetchData = async () => {
+      // ===== PROGRAMS =====
+      const { data: programsData } = await supabase
+        .from("programs")
+        .select("*");
 
-      if (data) {
-        const formatted = data.map((p) => ({
-          ...p,
+      if (!programsData) return;
 
-          // ⭐ Use TITLE
-          title: p.title || p.disaster_type,
-          disasterType: p.disaster_type,
+      // ===== VOLUNTEERS PER PROGRAM =====
+      const { data: pvData } = await supabase
+        .from("program_volunteers")
+        .select("program_id, volunteer_id");
 
-          // ⭐ Proper location object for map + UI
-          location: {
-            lat: p.lat,
-            lng: p.lng,
-            name: p.location_name || "Unknown location",
-          },
+      // Map program_id -> count
+      const volunteerCountMap: Record<string, number> = {};
 
-          volunteerCount: 0,
-          maxVolunteers: p.max_volunteers || 50,
-          requiredSkills: p.required_skills || [],
-        }));
+      pvData?.forEach((v) => {
+        volunteerCountMap[v.program_id] =
+          (volunteerCountMap[v.program_id] || 0) + 1;
+      });
 
-        setPrograms(formatted);
-      }
+      // ===== FORMAT PROGRAMS FOR UI =====
+      const formatted = programsData.map((p) => ({
+        ...p,
+
+        title: p.title || p.disaster_type,
+
+        disasterType: p.disaster_type,
+
+        location: {
+          lat: p.lat,
+          lng: p.lng,
+          name: p.location_name || "Unknown location",
+        },
+
+        volunteerCount: volunteerCountMap[p.id] || 0,
+
+        maxVolunteers: p.max_volunteers || 50,
+
+        requiredSkills: p.required_skills || [],
+      }));
+
+      setPrograms(formatted);
+
+      // ===== TOTAL VOLUNTEERS =====
+      const { count } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "volunteer");
+
+      setTotalVolunteers(count || 0);
+
+      // ===== PARTNER NGOs =====
+      const ngoSet = new Set(programsData.map((p) => p.created_by));
+      setPartnerNGOs(ngoSet.size);
     };
 
-    fetchPrograms();
+    fetchData();
   }, []);
 
   const activePrograms = programs.filter((p) => p.status === "active");
@@ -75,13 +108,13 @@ export default function Dashboard() {
     },
     {
       icon: Users,
-      value: "—",
+      value: totalVolunteers,
       label: "Total Volunteers",
       iconClass: "text-primary",
     },
     {
       icon: Building2,
-      value: "—",
+      value: partnerNGOs,
       label: "Partner NGOs",
       iconClass: "text-severity-orange",
     },
@@ -98,7 +131,7 @@ export default function Dashboard() {
       <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
 
       <main className="container mx-auto px-4 py-6">
-        {/* Stats */}
+        {/* ===== STATS ===== */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {stats.map(({ icon: Icon, value, label, iconClass }) => (
             <div
@@ -118,9 +151,9 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Map + Programs */}
+        {/* ===== MAP + PROGRAMS ===== */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Map */}
+          {/* MAP */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-xl font-bold text-foreground">Disaster Map</h2>
 
@@ -144,11 +177,7 @@ export default function Dashboard() {
                     <div className="flex justify-between">
                       <div>
                         <SeverityBadge severity={program.severity} size="sm" />
-
-                        {/* ⭐ TITLE */}
                         <h3 className="font-semibold">{program.title}</h3>
-
-                        {/* ⭐ LOCATION NAME */}
                         <p className="text-sm text-muted-foreground">
                           {program.location?.name}
                         </p>
@@ -164,7 +193,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Programs List */}
+          {/* PROGRAM LIST */}
           <div className="space-y-4">
             <div className="flex justify-between">
               <h2 className="text-xl font-bold text-foreground">Programs</h2>
@@ -193,7 +222,7 @@ export default function Dashboard() {
               {filteredPrograms.map((program) => (
                 <ProgramCard
                   key={program.id}
-                  program={program} // ⭐ DO NOT MODIFY
+                  program={program}
                   variant="compact"
                 />
               ))}

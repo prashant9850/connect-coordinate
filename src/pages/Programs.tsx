@@ -23,31 +23,49 @@ export default function Programs() {
   );
   const [statusFilter, setStatusFilter] = useState<"active" | "all">("active");
 
-  // ✅ FETCH FROM SUPABASE + FORMAT DATA
   useEffect(() => {
     const fetchPrograms = async () => {
-      const { data } = await supabase
+      // 1️⃣ Get programs
+      const { data: programsData } = await supabase
         .from("programs")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (data) {
-        const formatted = data.map((p) => ({
-          ...p,
-          title: p.title || p.disaster_type,
-          disasterType: p.disaster_type,
+      if (!programsData) return;
 
-          location: {
-            name: p.location_name || "Unknown location",
-          },
+      // 2️⃣ Get volunteer links
+      const { data: pvData } = await supabase
+        .from("program_volunteers")
+        .select("program_id");
 
-          requiredSkills: p.required_skills || [],
-          volunteerCount: 0,
-          maxVolunteers: p.max_volunteers || 50,
-        }));
+      // 3️⃣ Count volunteers per program
+      const volunteerCounts: Record<string, number> = {};
 
-        setPrograms(formatted);
-      }
+      pvData?.forEach((row) => {
+        volunteerCounts[row.program_id] =
+          (volunteerCounts[row.program_id] || 0) + 1;
+      });
+
+      // 4️⃣ Format for UI
+      const formatted = programsData.map((p) => ({
+        ...p,
+
+        title: p.title || p.disaster_type,
+        disasterType: p.disaster_type,
+
+        location: {
+          name: p.location_name || "Unknown location",
+        },
+
+        requiredSkills: p.required_skills || [],
+
+        // ⭐ REAL volunteer count
+        volunteerCount: volunteerCounts[p.id] || 0,
+
+        maxVolunteers: p.max_volunteers || 50,
+      }));
+
+      setPrograms(formatted);
     };
 
     fetchPrograms();
@@ -215,7 +233,7 @@ export default function Programs() {
                 setStatusFilter("active");
               }}
             >
-              Clear filtersfddd
+              Clear filters
             </Button>
           </div>
         )}
