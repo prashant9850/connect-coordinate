@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Header } from "@/components/Header";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { NGOList } from "@/components/NGOList";
 import { Input } from "@/components/ui/input";
@@ -44,8 +43,6 @@ export default function NGOs() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
-
       <main className="container mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">NGOs</h1>

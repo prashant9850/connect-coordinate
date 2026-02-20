@@ -1,12 +1,13 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import App from "./App";
 import "./index.css";
-import { AuthProvider } from "@/context/AuthContext"; // ✅ ADD THIS
+import { NotificationProvider } from "@/context/NotificationProvider";
+import { AuthProvider } from "@/context/AuthContext";
 
 createRoot(document.getElementById("root")!).render(
   <AuthProvider>
-    {" "}
-    {/* ✅ WRAP HERE */}
-    <App />
+    <NotificationProvider>
+      <App />
+    </NotificationProvider>
   </AuthProvider>,
 );

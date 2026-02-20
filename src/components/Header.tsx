@@ -8,12 +8,14 @@ import {
   Menu,
   X,
   AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EmergencyButton } from "./EmergencyButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useRef } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -26,8 +28,11 @@ export function Header({ onEmergencyClick }: any) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, setUser } = useAuth();
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const channelRef = useRef<any>(null);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -70,11 +75,21 @@ export function Header({ onEmergencyClick }: any) {
 
           {/* Right Side */}
           <div className="flex items-center gap-3 relative">
+            {/* SOS Button */}
             <EmergencyButton
               size="default"
               onClick={onEmergencyClick}
               showPulse={false}
             />
+
+            {/* 🔔 Notifications — only when logged in */}
+            {user && (
+              <Link to="/notifications">
+                <button className="relative p-2 rounded-lg hover:bg-muted">
+                  <Bell className="h-5 w-5" />
+                </button>
+              </Link>
+            )}
 
             {/* 🔹 Logged In User */}
             {user && profile ? (

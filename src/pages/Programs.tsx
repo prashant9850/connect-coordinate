@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Header } from "@/components/Header";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { ProgramCard } from "@/components/ProgramCard";
 import { Button } from "@/components/ui/button";
@@ -87,8 +86,6 @@ export default function Programs() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
-
       <main className="container mx-auto px-4 py-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>

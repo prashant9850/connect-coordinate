@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Header } from "@/components/Header";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { DisasterMap } from "@/components/DisasterMap";
 import { ProgramCard } from "@/components/ProgramCard";
@@ -85,9 +84,13 @@ export default function Dashboard() {
 
       setTotalVolunteers(count || 0);
 
-      // ===== PARTNER NGOs =====
-      const ngoSet = new Set(programsData.map((p) => p.created_by));
-      setPartnerNGOs(ngoSet.size);
+      // ===== TOTAL NGOs =====
+      const { count: ngoCount } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "ngo");
+
+      setPartnerNGOs(ngoCount || 0);
     };
 
     fetchData();
@@ -128,8 +131,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
-
       <main className="container mx-auto px-4 py-6">
         {/* ===== STATS ===== */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

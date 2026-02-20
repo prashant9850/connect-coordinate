@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Header } from "@/components/Header";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +63,6 @@ const skills: { value: VolunteerSkill; label: string }[] = [
 export default function CreateProgram() {
   const navigate = useNavigate();
 
-  // ✅ ADDED
   const { user } = useAuth();
 
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
@@ -91,41 +89,72 @@ export default function CreateProgram() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!user) return;
 
     setIsSubmitting(true);
 
-    // Temporary coordinates until map picker added
     const lat = 18.5204;
     const lng = 73.8567;
 
-    const { error } = await supabase.from("programs").insert({
-      title: formData.title, // ✅ ADD
-      description: formData.description, // ✅ ADD
-      disaster_type: formData.disasterType,
-      severity: formData.severity,
-      status: "active",
+    // 🔹 1. CREATE PROGRAM
+    const { data: programData, error } = await supabase
+      .from("programs")
+      .insert({
+        title: formData.title,
+        description: formData.description,
+        disaster_type: formData.disasterType,
+        severity: formData.severity,
+        status: "active",
+        location_name: formData.locationName,
+        lat,
+        lng,
+        max_volunteers: formData.maxVolunteers,
+        created_by: user.id,
+        required_skills: formData.requiredSkills,
+      })
+      .select()
+      .single();
 
-      location_name: formData.locationName, // ✅ ADD
-
-      lat,
-      lng,
-
-      max_volunteers: formData.maxVolunteers, // ✅ ADD
-
-      created_by: user.id,
-      required_skills: formData.requiredSkills,
-    });
-
-    setIsSubmitting(false);
-
-    if (!error) {
-      navigate("/dashboard");
-    } else {
+    if (error || !programData) {
+      setIsSubmitting(false);
       alert("Failed to create program");
       console.error(error);
+      return;
     }
+
+    // 🔥 2. SEND NOTIFICATIONS TO ALL USERS EXCEPT CREATOR
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id");
+
+    if (profilesError || !profiles) {
+      console.error("Failed to load users", profilesError);
+    } else {
+      const recipients = profiles.filter((p) => p.id !== user.id);
+
+      if (recipients.length > 0) {
+        const notifications = recipients.map((u) => ({
+          user_id: u.id,
+          program_id: programData.id,
+          message: `New ${formData.disasterType} relief program: "${formData.title}" in ${formData.locationName}`,
+          type: "program_alert",
+        }));
+
+        const { error: insertError } = await supabase
+          .from("notifications")
+          .insert(notifications);
+
+        if (insertError) {
+          console.error("Notification insert failed:", insertError);
+        } else {
+          console.log("✅ Notifications sent to all users");
+        }
+      }
+    }
+
+    setIsSubmitting(false);
+    navigate("/dashboard");
   };
 
   const isValid =
@@ -136,8 +165,6 @@ export default function CreateProgram() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
-
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         {/* Back button */}
         <Button variant="ghost" size="sm" className="mb-4" asChild>

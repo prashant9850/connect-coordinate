@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Header } from "@/components/Header";
 import { EmergencyButton } from "@/components/EmergencyButton";
 import { EmergencyModal } from "@/components/EmergencyModal";
 import { SeverityBadge } from "@/components/SeverityBadge";
@@ -179,8 +178,6 @@ export default function ProgramDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onEmergencyClick={() => setEmergencyModalOpen(true)} />
-
       <main className="container mx-auto px-4 py-6">
         {/* BACK BUTTON */}
         <Button
