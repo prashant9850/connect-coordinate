@@ -17,45 +17,46 @@ export default function Notifications() {
     if (!user) return;
 
     const loadNotifications = async () => {
-      // 1️⃣ Load notifications + program info
-      const { data, error } = await supabase
+      // 🔹 STEP 1 — Get notifications
+      const { data: notifData, error } = await supabase
         .from("notifications")
-        .select(
-          `
-        *,
-        programs (
-          id,
-          created_by
-        )
-      `,
-        )
+        .select("*")
         .eq("user_id", user.id)
         .order("id", { ascending: false });
 
-      if (error) {
+      if (error || !notifData) {
         console.error(error);
         return;
       }
 
-      // 2️⃣ Fetch creator profiles
-      const creatorIds = data
-        .map((n) => n.programs?.created_by)
-        .filter(Boolean);
+      // 🔹 STEP 2 — Fetch program + creator info for each notification
+      const enriched = await Promise.all(
+        notifData.map(async (n) => {
+          const { data: program } = await supabase
+            .from("programs")
+            .select("id, status, created_by")
+            .eq("id", n.program_id)
+            .single();
 
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .in("id", creatorIds);
+          let creator = null;
 
-      // 3️⃣ Merge data
-      const enriched = data.map((n) => {
-        const creator = profiles?.find((p) => p.id === n.programs?.created_by);
+          if (program?.created_by) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name, role")
+              .eq("id", program.created_by)
+              .single();
 
-        return {
-          ...n,
-          creator,
-        };
-      });
+            creator = profile;
+          }
+
+          return {
+            ...n,
+            program,
+            creator,
+          };
+        }),
+      );
 
       setNotifications(enriched);
     };
@@ -74,7 +75,6 @@ export default function Notifications() {
 
     if (error) {
       alert("Already joined or failed");
-      console.error(error);
     } else {
       alert("You joined this program ✅");
     }
@@ -125,18 +125,24 @@ export default function Notifications() {
             )}
           >
             {notifications.map((n) => {
-              const creator = n.programs?.profiles;
+              const program = n.program;
+              const creator = n.creator;
+              const isEnded = program?.status !== "active";
 
               return (
                 <div
                   key={n.id}
-                  onClick={() => navigate(`/program/${n.program_id}`)}
+                  onClick={() => {
+                    if (!isEnded) {
+                      navigate(`/program/${n.program_id}`);
+                    }
+                  }}
                   className="cursor-pointer p-4 border rounded-xl bg-card hover:shadow-lg transition"
                 >
                   {/* Message */}
                   <p className="font-semibold text-lg mb-2">{n.message}</p>
 
-                  {/* Creator Info */}
+                  {/* Creator */}
                   {creator && (
                     <p className="text-sm text-muted-foreground mb-1">
                       Started by:{" "}
@@ -147,21 +153,25 @@ export default function Notifications() {
                     </p>
                   )}
 
-                  {/* Date */}
+                  {/* Time */}
                   <p className="text-xs text-muted-foreground mb-3">
                     {new Date(n.created_at).toLocaleString()}
                   </p>
 
-                  {/* Join Button */}
+                  {/* JOIN / ENDED BUTTON */}
                   <Button
                     size="sm"
-                    className="w-full"
+                    className={cn(
+                      "w-full",
+                      isEnded && "bg-destructive hover:bg-destructive",
+                    )}
+                    disabled={isEnded}
                     onClick={(e) => {
                       e.stopPropagation();
-                      joinProgram(n.program_id);
+                      if (!isEnded) joinProgram(n.program_id);
                     }}
                   >
-                    Join Program
+                    {isEnded ? "Program Ended" : "Join Program"}
                   </Button>
                 </div>
               );

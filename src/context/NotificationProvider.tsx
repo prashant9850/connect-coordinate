@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export function NotificationProvider({ children }: any) {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
@@ -23,7 +26,23 @@ export function NotificationProvider({ children }: any) {
         (payload) => {
           console.log("🔥 GLOBAL NEW NOTIFICATION:", payload.new);
 
-          alert(payload.new.message); // test popup
+          const programId = payload.new.program_id;
+
+          // ⭐ SHOW TOAST WITH REDIRECT BUTTON
+          toast(payload.new.message, {
+            duration: 6000, // auto disappear after 6 sec
+
+            action: {
+              label: "View",
+              onClick: () => {
+                navigate(`/program/${programId}`);
+              },
+            },
+
+            onDismiss: () => {
+              console.log("Toast dismissed");
+            },
+          });
         },
       )
       .subscribe((status) => {
@@ -34,7 +53,7 @@ export function NotificationProvider({ children }: any) {
       supabase.removeChannel(channel);
       console.log("❌ GLOBAL listener stopped");
     };
-  }, [user]);
+  }, [user, navigate]);
 
   return children;
 }

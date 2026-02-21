@@ -20,46 +20,47 @@ import NGOs from "./pages/NGOs";
 import NotFound from "./pages/NotFound";
 
 import AppLayout from "@/components/AppLayout";
-
 import { AuthProvider } from "@/context/AuthContext";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <NotificationProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        {/* ✅ Router MUST wrap NotificationProvider */}
+        <BrowserRouter>
+          {/* ✅ Now useNavigate() works inside provider */}
+          <NotificationProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
 
-          <BrowserRouter>
-            <Routes>
-              {/* PUBLIC ROUTES */}
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Routes>
+                {/* PUBLIC ROUTES */}
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-              {/* PROTECTED / MAIN APP ROUTES */}
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/programs" element={<Programs />} />
-                <Route path="/program/:id" element={<ProgramDetail />} />
-                <Route path="/create-program" element={<CreateProgram />} />
-                <Route path="/volunteers" element={<Volunteers />} />
-                <Route path="/ngo/:id" element={<NGOProfile />} />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/ngos" element={<NGOs />} />
-              </Route>
+                {/* MAIN APP ROUTES */}
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/programs" element={<Programs />} />
+                  <Route path="/program/:id" element={<ProgramDetail />} />
+                  <Route path="/create-program" element={<CreateProgram />} />
+                  <Route path="/volunteers" element={<Volunteers />} />
+                  <Route path="/ngo/:id" element={<NGOProfile />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/ngos" element={<NGOs />} />
+                </Route>
 
-              {/* CATCH ALL */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </NotificationProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
-
-export default App;
+                {/* CATCH ALL */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TooltipProvider>
+          </NotificationProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
