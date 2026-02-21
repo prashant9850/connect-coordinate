@@ -1,138 +1,162 @@
-import { cn } from '@/lib/utils';
-import type { ResourceRequest, ResourceType } from '@/types';
-import { 
-  Package, 
-  Flashlight, 
-  Stethoscope, 
-  Bed,
-  Droplets,
-  Layers,
-  Tent,
-  Radio,
-  Check,
-  Clock,
-  Hand
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { cn } from "@/lib/utils";
+import type { Volunteer } from "@/types";
+import { User, Phone, MapPin } from "lucide-react";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface ResourceRequestCardProps {
-  request: ResourceRequest;
-  onProvide?: (requestId: string) => void;
-  showProvideButton?: boolean;
+  volunteers: Volunteer[];
+  maxDisplay?: number;
   className?: string;
+  limited?: boolean;
 }
 
-const resourceIcons: Record<ResourceType, React.ElementType> = {
-  rope: Package,
-  torch: Flashlight,
-  medical_kit: Stethoscope,
-  stretcher: Bed,
-  water: Droplets,
-  blanket: Layers,
-  tent: Tent,
-  radio: Radio,
+const availabilityStyles = {
+  available: "bg-success text-success-foreground",
+  busy: "bg-severity-orange text-success-foreground",
+  offline: "bg-muted text-muted-foreground",
 };
 
-const resourceLabels: Record<ResourceType, string> = {
-  rope: 'Rope',
-  torch: 'Torch/Flashlight',
-  medical_kit: 'Medical Kit',
-  stretcher: 'Stretcher',
-  water: 'Water Supply',
-  blanket: 'Blankets',
-  tent: 'Tent',
-  radio: 'Radio',
-};
+const skillColors = [
+  "bg-primary/10 text-primary",
+  "bg-severity-orange-bg text-severity-orange",
+  "bg-severity-yellow-bg text-severity-yellow",
+  "bg-success/10 text-success",
+];
 
-const urgencyStyles = {
-  low: 'bg-muted text-muted-foreground',
-  medium: 'bg-severity-yellow-bg text-severity-yellow',
-  high: 'bg-severity-red-bg text-severity-red',
-};
-
-const statusConfig = {
-  open: {
-    icon: Clock,
-    label: 'Open Request',
-    className: 'text-muted-foreground',
-  },
-  claimed: {
-    icon: Hand,
-    label: 'Being Provided',
-    className: 'text-severity-orange',
-  },
-  fulfilled: {
-    icon: Check,
-    label: 'Fulfilled',
-    className: 'text-success',
-  },
-};
-
-export function ResourceRequestCard({ 
-  request, 
-  onProvide,
-  showProvideButton = true,
-  className 
+export function ResourceRequestCard({
+  volunteers,
+  maxDisplay = 5,
+  className,
+  limited = false,
 }: ResourceRequestCardProps) {
-  const Icon = resourceIcons[request.resourceType];
-  const StatusIcon = statusConfig[request.status].icon;
+  const displayedVolunteers = volunteers.slice(0, maxDisplay);
+  const remainingCount = volunteers.length - maxDisplay;
+
+  if (volunteers.length === 0) {
+    return (
+      <div className={cn("text-center py-8", className)}>
+        <User className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
+        <p className="text-muted-foreground">No volunteers yet</p>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={cn(
-        'p-4 rounded-lg bg-card border border-border',
-        'hover:shadow-md transition-all duration-200',
-        className
+    <div className={cn("space-y-3", className)}>
+      {displayedVolunteers.map((volunteer, index) => (
+        <div
+          key={volunteer.id}
+          className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+
+            {!limited && (
+              <span
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card",
+                  volunteer.availability === "available" && "bg-success",
+                  volunteer.availability === "busy" && "bg-severity-orange",
+                  volunteer.availability === "offline" && "bg-muted-foreground",
+                )}
+              />
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-foreground truncate">
+                {volunteer.name}
+              </h4>
+
+              {!limited && (
+                <span
+                  className={cn(
+                    "text-xs px-1.5 py-0.5 rounded-full capitalize",
+                    availabilityStyles[volunteer.availability],
+                  )}
+                >
+                  {volunteer.availability}
+                </span>
+              )}
+            </div>
+
+            {!limited && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {volunteer.skills.slice(0, 2).map((skill, sIndex) => (
+                  <span
+                    key={skill}
+                    className={cn(
+                      "text-xs px-1.5 py-0.5 rounded capitalize",
+                      skillColors[sIndex % skillColors.length],
+                    )}
+                  >
+                    {skill.replace("_", " ")}
+                  </span>
+                ))}
+
+                {volunteer.skills.length > 2 && (
+                  <span className="text-xs text-muted-foreground">
+                    +{volunteer.skills.length - 2}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Contact */}
+          {!limited && (
+            <div className="flex-shrink-0 flex gap-2">
+              {volunteer.phone && (
+                <a href={`tel:${volunteer.phone}`}>
+                  <button
+                    className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
+                    title="Call"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </button>
+                </a>
+              )}
+
+              {volunteer.location && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
+                        title="Location"
+                      >
+                        <MapPin className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {typeof volunteer.location === "string"
+                        ? volunteer.location
+                        : `${volunteer.location.lat}, ${volunteer.location.lng}`}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {remainingCount > 0 && (
+        <button className="w-full py-2 text-sm text-primary hover:text-primary/80 font-medium">
+          View {remainingCount} more volunteers
+        </button>
       )}
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 p-2 rounded-lg bg-secondary">
-          <Icon className="h-5 w-5 text-secondary-foreground" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-medium text-foreground">
-              {resourceLabels[request.resourceType]}
-            </h4>
-            <span className={cn(
-              'text-xs px-2 py-0.5 rounded-full font-medium capitalize',
-              urgencyStyles[request.urgency]
-            )}>
-              {request.urgency}
-            </span>
-          </div>
-
-          <p className="text-sm text-muted-foreground mb-2">
-            Quantity: {request.quantity} • Requested by {request.requesterName}
-          </p>
-
-          <div className="flex items-center gap-1 text-sm">
-            <StatusIcon className={cn('h-4 w-4', statusConfig[request.status].className)} />
-            <span className={statusConfig[request.status].className}>
-              {statusConfig[request.status].label}
-              {request.status === 'claimed' && request.providerName && (
-                <span className="text-foreground"> by {request.providerName}</span>
-              )}
-              {request.status === 'fulfilled' && request.providerName && (
-                <span className="text-foreground"> by {request.providerName}</span>
-              )}
-            </span>
-          </div>
-        </div>
-
-        {showProvideButton && request.status === 'open' && onProvide && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onProvide(request.id)}
-            className="flex-shrink-0"
-          >
-            <Hand className="h-4 w-4 mr-1" />
-            Provide
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

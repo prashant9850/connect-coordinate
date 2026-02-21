@@ -13,47 +13,64 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  /* ===============================
+     🔥 LOAD NOTIFICATIONS
+  ================================= */
   useEffect(() => {
     if (!user) return;
 
     const loadNotifications = async () => {
-      // 🔹 STEP 1 — Get notifications
       const { data: notifData, error } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user.id)
-        .order("id", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error || !notifData) {
         console.error(error);
         return;
       }
 
-      // 🔹 STEP 2 — Fetch program + creator info for each notification
       const enriched = await Promise.all(
         notifData.map(async (n) => {
+          // 🧩 Program
           const { data: program } = await supabase
             .from("programs")
             .select("id, status, created_by")
             .eq("id", n.program_id)
-            .single();
+            .maybeSingle();
 
+          // 👤 Creator
           let creator = null;
-
           if (program?.created_by) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("full_name, role")
               .eq("id", program.created_by)
-              .single();
+              .maybeSingle();
 
             creator = profile;
+          }
+
+          // 👥 Joined check
+          let joined = false;
+
+          if (program) {
+            const { data: volunteer } = await supabase
+              .from("program_volunteers")
+              .select("id")
+              .eq("program_id", n.program_id)
+              .eq("volunteer_id", user.id)
+              .maybeSingle();
+
+            joined = !!volunteer;
           }
 
           return {
             ...n,
             program,
             creator,
+            joined,
           };
         }),
       );
@@ -64,9 +81,24 @@ export default function Notifications() {
     loadNotifications();
   }, [user]);
 
-  // 🔥 JOIN PROGRAM
+  /* ===============================
+     🔥 JOIN PROGRAM
+  ================================= */
   const joinProgram = async (programId: string) => {
     if (!user) return;
+
+    // ❗ Check again to avoid duplicates
+    const { data: existing } = await supabase
+      .from("program_volunteers")
+      .select("id")
+      .eq("program_id", programId)
+      .eq("volunteer_id", user.id)
+      .maybeSingle();
+
+    if (existing) {
+      alert("Already joined");
+      return;
+    }
 
     const { error } = await supabase.from("program_volunteers").insert({
       program_id: programId,
@@ -74,21 +106,42 @@ export default function Notifications() {
     });
 
     if (error) {
-      alert("Already joined or failed");
-    } else {
-      alert("You joined this program ✅");
+      alert("Failed to join program");
+      return;
     }
+
+    alert("You joined this program ✅");
+
+    // 🔄 Update UI instantly
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.program_id === programId ? { ...n, joined: true } : n,
+      ),
+    );
+  };
+
+  /* ===============================
+     🌐 NAVIGATION
+  ================================= */
+  const openProgram = (program: any) => {
+    if (!program) return;
+
+    if (program.status !== "active") {
+      alert("This program has ended");
+      return;
+    }
+
+    navigate(`/program/${program.id}`);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
-        {/* Header */}
+        {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Notifications</h1>
 
-          {/* View Toggle */}
-          <div className="flex rounded-lg border border-border overflow-hidden">
+          <div className="flex rounded-lg border overflow-hidden">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
@@ -115,7 +168,7 @@ export default function Notifications() {
           </div>
         </div>
 
-        {/* Notifications */}
+        {/* NOTIFICATIONS */}
         {notifications.length > 0 ? (
           <div
             className={cn(
@@ -127,51 +180,57 @@ export default function Notifications() {
             {notifications.map((n) => {
               const program = n.program;
               const creator = n.creator;
-              const isEnded = program?.status !== "active";
+
+              const isEnded = !program || program.status !== "active";
+              const isJoined = n.joined;
 
               return (
                 <div
                   key={n.id}
-                  onClick={() => {
-                    if (!isEnded) {
-                      navigate(`/program/${n.program_id}`);
-                    }
-                  }}
-                  className="cursor-pointer p-4 border rounded-xl bg-card hover:shadow-lg transition"
+                  onClick={() => openProgram(program)}
+                  className="cursor-pointer p-4 border rounded-xl bg-card hover:shadow-lg transition flex flex-col h-full"
                 >
-                  {/* Message */}
-                  <p className="font-semibold text-lg mb-2">{n.message}</p>
+                  {/* TOP CONTENT */}
+                  <div>
+                    {/* Message */}
+                    <p className="font-semibold text-lg mb-2">{n.message}</p>
 
-                  {/* Creator */}
-                  {creator && (
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Started by:{" "}
-                      <span className="font-medium text-foreground">
-                        {creator.full_name || "Unknown"}
-                      </span>{" "}
-                      ({creator.role?.toUpperCase()})
+                    {/* Creator */}
+                    {creator && (
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Started by:{" "}
+                        <span className="font-medium text-foreground">
+                          {creator.full_name || "Unknown"}
+                        </span>{" "}
+                        ({creator.role?.toUpperCase()})
+                      </p>
+                    )}
+
+                    {/* Time */}
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {new Date(n.created_at).toLocaleString()}
                     </p>
-                  )}
+                  </div>
 
-                  {/* Time */}
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {new Date(n.created_at).toLocaleString()}
-                  </p>
-
-                  {/* JOIN / ENDED BUTTON */}
+                  {/* 🔻 BUTTON FIXED AT BOTTOM */}
                   <Button
                     size="sm"
                     className={cn(
-                      "w-full",
+                      "w-full mt-auto",
                       isEnded && "bg-destructive hover:bg-destructive",
+                      isJoined && "bg-green-600 hover:bg-green-600",
                     )}
-                    disabled={isEnded}
+                    disabled={isEnded || isJoined}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isEnded) joinProgram(n.program_id);
+                      if (!isEnded && !isJoined) joinProgram(n.program_id);
                     }}
                   >
-                    {isEnded ? "Program Ended" : "Join Program"}
+                    {isEnded
+                      ? "Program Ended"
+                      : isJoined
+                        ? "Already Joined"
+                        : "Join Program"}
                   </Button>
                 </div>
               );

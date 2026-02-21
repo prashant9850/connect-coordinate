@@ -93,9 +93,28 @@ export default function CreateProgram() {
 
     setIsSubmitting(true);
 
-    const lat = 18.5204;
-    const lng = 73.8567;
+    // 🌍 Convert location name → coordinates
+    let lat = 18.5204;
+    let lng = 73.8567;
 
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          formData.locationName,
+        )}`,
+      );
+
+      const geoData = await geoRes.json();
+
+      if (geoData.length > 0) {
+        lat = parseFloat(geoData[0].lat);
+        lng = parseFloat(geoData[0].lon);
+      } else {
+        alert("Location not found. Using default location.");
+      }
+    } catch (err) {
+      console.error("Geocoding error:", err);
+    }
     // 🔹 1. CREATE PROGRAM
     const { data: programData, error } = await supabase
       .from("programs")
