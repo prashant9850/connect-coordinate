@@ -18,11 +18,9 @@ function FitBounds({ programs }: { programs: Program[] }) {
   useEffect(() => {
     if (programs.length === 0) return;
 
-    // ✅ If ONLY ONE program → zoom out so circle ≈ 20% area
     if (programs.length === 1) {
       const p = programs[0];
-
-      const offset = 0.25; // controls zoom out (bigger = more zoomed out)
+      const offset = 0.25;
 
       const bounds = new LatLngBounds(
         [p.lat - offset, p.lng - offset],
@@ -33,7 +31,6 @@ function FitBounds({ programs }: { programs: Program[] }) {
       return;
     }
 
-    // ✅ Multiple programs → fit all points
     const bounds = new LatLngBounds(
       programs.map((p) => [p.lat, p.lng] as LatLngExpression),
     );
@@ -58,7 +55,7 @@ export function DisasterMap({
   const center: LatLngExpression =
     programs.length > 0
       ? [programs[0].lat, programs[0].lng]
-      : [20.5937, 78.9629]; // India center
+      : [20.5937, 78.9629];
 
   const getColor = (s: string) => {
     if (s === "red") return "#ef4444";
@@ -68,17 +65,23 @@ export function DisasterMap({
   };
 
   return (
-    <div className={cn("rounded-xl overflow-hidden h-full", className)}>
+    /* 🔥 CRITICAL FIX — prevents map overlapping dialogs */
+    <div
+      className={cn(
+        "relative z-0 overflow-hidden rounded-xl h-full",
+        className,
+      )}
+      style={{ contain: "layout paint size" }} // ⭐ important for Leaflet
+    >
       <MapContainer
         center={center}
-        zoom={5} // initial zoom (will be overridden)
+        zoom={5}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={interactive}
         dragging={interactive}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        {/* 🔥 Auto fit logic */}
         <FitBounds programs={programs} />
 
         {programs.map((p) => (

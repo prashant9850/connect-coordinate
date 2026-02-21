@@ -133,6 +133,28 @@ export default function Notifications() {
 
     navigate(`/program/${program.id}`);
   };
+  const handleAccept = async (requestId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("resource_requests")
+      .update({
+        status: "providing",
+        accepted_by: user.id,
+      })
+      .eq("id", requestId);
+
+    if (!error) alert("You are providing this resource");
+  };
+
+  const handleComplete = async (requestId: string) => {
+    const { error } = await supabase
+      .from("resource_requests")
+      .update({ status: "completed" })
+      .eq("id", requestId);
+
+    if (!error) alert("Marked as completed");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -212,26 +234,38 @@ export default function Notifications() {
                     </p>
                   </div>
 
-                  {/* 🔻 BUTTON FIXED AT BOTTOM */}
-                  <Button
-                    size="sm"
-                    className={cn(
-                      "w-full mt-auto",
-                      isEnded && "bg-destructive hover:bg-destructive",
-                      isJoined && "bg-green-600 hover:bg-green-600",
-                    )}
-                    disabled={isEnded || isJoined}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isEnded && !isJoined) joinProgram(n.program_id);
-                    }}
-                  >
-                    {isEnded
-                      ? "Program Ended"
-                      : isJoined
-                        ? "Already Joined"
-                        : "Join Program"}
-                  </Button>
+                  {n.type === "resource_request" ? (
+                    <Button
+                      size="sm"
+                      className="w-full mt-auto"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept(n.resource_request_id);
+                      }}
+                    >
+                      Accept Request
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className={cn(
+                        "w-full mt-auto",
+                        isEnded && "bg-destructive",
+                        isJoined && "bg-green-600",
+                      )}
+                      disabled={isEnded || isJoined}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isEnded && !isJoined) joinProgram(n.program_id);
+                      }}
+                    >
+                      {isEnded
+                        ? "Program Ended"
+                        : isJoined
+                          ? "Already Joined"
+                          : "Join Program"}
+                    </Button>
+                  )}
                 </div>
               );
             })}
