@@ -6,161 +6,156 @@ import { Button } from "@/components/ui/button";
 import { Grid3X3, List } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+type FilterType = "all" | "emergency" | "resource_request" | "program";
+
 export default function Notifications() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [filter, setFilter] = useState<FilterType>("all");
 
   /* ===============================
-     🔥 LOAD NOTIFICATIONS
+     LOAD NOTIFICATIONS
   ================================= */
-  useEffect(() => {
+  const loadNotifications = async () => {
     if (!user) return;
 
-    const loadNotifications = async () => {
-      const { data: notifData, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
-      if (error || !notifData) {
-        console.error(error);
-        return;
-      }
+    if (!data) return;
 
-      const enriched = await Promise.all(
-        notifData.map(async (n) => {
-          // 🧩 Program
-          const { data: program } = await supabase
+    const enriched = await Promise.all(
+      data.map(async (n) => {
+        let program = null;
+        let joined = false;
+        let emergency = null;
+        let helperName = null;
+
+        /* 🔴 EMERGENCY DATA */
+        if (n.type === "emergency" && n.emergency_id) {
+          const { data: e } = await supabase
+            .from("emergency_requests")
+            .select("*")
+            .eq("id", n.emergency_id)
+            .maybeSingle();
+
+          emergency = e;
+
+          if (e?.helper_id) {
+            const { data: p } = await supabase
+              .from("profiles")
+              .select("name")
+              .eq("id", e.helper_id)
+              .maybeSingle();
+
+            helperName = p?.name || "Volunteer";
+          }
+        }
+
+        /* 🟡 PROGRAM DATA */
+        if (n.program_id) {
+          const { data: prog } = await supabase
             .from("programs")
-            .select("id, status, created_by")
+            .select("*")
             .eq("id", n.program_id)
             .maybeSingle();
 
-          // 👤 Creator
-          let creator = null;
-          if (program?.created_by) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("full_name, role")
-              .eq("id", program.created_by)
-              .maybeSingle();
+          program = prog;
 
-            creator = profile;
-          }
-
-          // 👥 Joined check
-          let joined = false;
-
-          if (program) {
-            const { data: volunteer } = await supabase
+          if (prog && user) {
+            const { data: vol } = await supabase
               .from("program_volunteers")
               .select("id")
-              .eq("program_id", n.program_id)
+              .eq("program_id", prog.id)
               .eq("volunteer_id", user.id)
               .maybeSingle();
 
-            joined = !!volunteer;
+            joined = !!vol;
           }
+        }
 
-          return {
-            ...n,
-            program,
-            creator,
-            joined,
-          };
-        }),
-      );
+        return { ...n, program, joined, emergency, helperName };
+      }),
+    );
 
-      setNotifications(enriched);
-    };
+    setNotifications(enriched);
+  };
 
+  useEffect(() => {
     loadNotifications();
+
+    const interval = setInterval(loadNotifications, 3000);
+    return () => clearInterval(interval);
   }, [user]);
 
   /* ===============================
-     🔥 JOIN PROGRAM
+     FILTER
   ================================= */
+  const filtered = notifications.filter((n) => {
+    if (filter === "all") return true;
+    if (filter === "emergency") return n.type === "emergency";
+    if (filter === "resource_request") return n.type === "resource_request";
+    if (filter === "program") return n.type === "program_alert";
+    return true;
+  });
+
+  /* ===============================
+     ACTIONS
+  ================================= */
+
+  const handleHelp = async (id: string) => {
+    if (!user) return;
+
+    await supabase
+      .from("emergency_requests")
+      .update({
+        status: "in_progress",
+        helper_id: user.id,
+      })
+      .eq("id", id);
+
+    loadNotifications();
+  };
+
+  const handleComplete = async (id: string) => {
+    await supabase
+      .from("emergency_requests")
+      .update({ status: "completed" })
+      .eq("id", id);
+
+    loadNotifications();
+  };
+
   const joinProgram = async (programId: string) => {
     if (!user) return;
 
-    // ❗ Check again to avoid duplicates
-    const { data: existing } = await supabase
-      .from("program_volunteers")
-      .select("id")
-      .eq("program_id", programId)
-      .eq("volunteer_id", user.id)
-      .maybeSingle();
-
-    if (existing) {
-      alert("Already joined");
-      return;
-    }
-
-    const { error } = await supabase.from("program_volunteers").insert({
+    await supabase.from("program_volunteers").insert({
       program_id: programId,
       volunteer_id: user.id,
     });
 
-    if (error) {
-      alert("Failed to join program");
-      return;
-    }
+    loadNotifications();
+  };
 
-    alert("You joined this program ✅");
-
-    // 🔄 Update UI instantly
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.program_id === programId ? { ...n, joined: true } : n,
-      ),
-    );
+  const openProgram = (program: any) => {
+    if (!program) return;
+    navigate(`/program/${program.id}`);
   };
 
   /* ===============================
-     🌐 NAVIGATION
+     UI
   ================================= */
-  const openProgram = (program: any) => {
-    if (!program) return;
-
-    if (program.status !== "active") {
-      alert("This program has ended");
-      return;
-    }
-
-    navigate(`/program/${program.id}`);
-  };
-  const handleAccept = async (requestId: string) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from("resource_requests")
-      .update({
-        status: "providing",
-        accepted_by: user.id,
-      })
-      .eq("id", requestId);
-
-    if (!error) alert("You are providing this resource");
-  };
-
-  const handleComplete = async (requestId: string) => {
-    const { error } = await supabase
-      .from("resource_requests")
-      .update({ status: "completed" })
-      .eq("id", requestId);
-
-    if (!error) alert("Marked as completed");
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
         {/* HEADER */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Notifications</h1>
 
           <div className="flex rounded-lg border overflow-hidden">
@@ -190,8 +185,27 @@ export default function Notifications() {
           </div>
         </div>
 
-        {/* NOTIFICATIONS */}
-        {notifications.length > 0 ? (
+        {/* FILTER */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {[
+            { key: "all", label: "All" },
+            { key: "emergency", label: "Emergencies" },
+            { key: "resource_request", label: "Resources" },
+            { key: "program", label: "Programs" },
+          ].map((f) => (
+            <Button
+              key={f.key}
+              size="sm"
+              variant={filter === f.key ? "default" : "outline"}
+              onClick={() => setFilter(f.key as FilterType)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
+
+        {/* CARDS */}
+        {filtered.length > 0 ? (
           <div
             className={cn(
               viewMode === "grid"
@@ -199,53 +213,76 @@ export default function Notifications() {
                 : "space-y-3",
             )}
           >
-            {notifications.map((n) => {
+            {filtered.map((n) => {
               const program = n.program;
-              const creator = n.creator;
+              const e = n.emergency;
 
-              const isEnded = !program || program.status !== "active";
+              const isEnded = program && program.status !== "active";
               const isJoined = n.joined;
 
               return (
                 <div
                   key={n.id}
-                  onClick={() => openProgram(program)}
-                  className="cursor-pointer p-4 border rounded-xl bg-card hover:shadow-lg transition flex flex-col h-full"
+                  onClick={() => program && openProgram(program)}
+                  className={cn(
+                    "cursor-pointer p-4 border rounded-xl transition flex flex-col h-full",
+                    n.type === "emergency"
+                      ? "bg-red-600 text-white border-red-700"
+                      : "bg-card hover:shadow-lg",
+                  )}
                 >
-                  {/* TOP CONTENT */}
                   <div>
-                    {/* Message */}
                     <p className="font-semibold text-lg mb-2">{n.message}</p>
 
-                    {/* Creator */}
-                    {creator && (
-                      <p className="text-sm text-muted-foreground mb-1">
-                        Started by:{" "}
-                        <span className="font-medium text-foreground">
-                          {creator.full_name || "Unknown"}
-                        </span>{" "}
-                        ({creator.role?.toUpperCase()})
-                      </p>
-                    )}
-
-                    {/* Time */}
-                    <p className="text-xs text-muted-foreground mb-3">
+                    <p className="text-xs opacity-80 mb-3">
                       {new Date(n.created_at).toLocaleString()}
                     </p>
                   </div>
 
-                  {n.type === "resource_request" ? (
-                    <Button
-                      size="sm"
-                      className="w-full mt-auto"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAccept(n.resource_request_id);
-                      }}
-                    >
-                      Accept Request
-                    </Button>
-                  ) : (
+                  {/* ===== EMERGENCY ===== */}
+                  {n.type === "emergency" && e && (
+                    <>
+                      {e.status === "pending" && (
+                        <Button
+                          size="sm"
+                          className="w-full mt-auto bg-white text-red-600"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            handleHelp(e.id);
+                          }}
+                        >
+                          🚑 I WILL HELP
+                        </Button>
+                      )}
+
+                      {e.status === "in_progress" &&
+                        (e.helper_id === user?.id ? (
+                          <Button
+                            size="sm"
+                            className="w-full mt-auto bg-green-600"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              handleComplete(e.id);
+                            }}
+                          >
+                            Mark Completed
+                          </Button>
+                        ) : (
+                          <div className="text-center text-sm mt-auto">
+                            👤 {n.helperName} is helping
+                          </div>
+                        ))}
+
+                      {e.status === "completed" && (
+                        <div className="text-center text-sm mt-auto">
+                          ✅ Help Provided
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ===== PROGRAM ALERT ===== */}
+                  {n.type === "program_alert" && program && (
                     <Button
                       size="sm"
                       className={cn(
@@ -254,9 +291,9 @@ export default function Notifications() {
                         isJoined && "bg-green-600",
                       )}
                       disabled={isEnded || isJoined}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!isEnded && !isJoined) joinProgram(n.program_id);
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        if (!isEnded && !isJoined) joinProgram(program.id);
                       }}
                     >
                       {isEnded
@@ -266,13 +303,20 @@ export default function Notifications() {
                           : "Join Program"}
                     </Button>
                   )}
+
+                  {/* ===== RESOURCE REQUEST ===== */}
+                  {n.type === "resource_request" && (
+                    <Button size="sm" className="w-full mt-auto">
+                      Accept Request
+                    </Button>
+                  )}
                 </div>
               );
             })}
           </div>
         ) : (
           <p className="text-center text-muted-foreground py-20">
-            No notifications available
+            No notifications found
           </p>
         )}
       </main>

@@ -55,7 +55,7 @@ export default function ProgramDetail() {
   const [program, setProgram] = useState<any | null>(null);
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [resourceRequests, setResourceRequests] = useState<any[]>([]);
-  const [creatorName, setCreatorName] = useState<string>("");
+  const [creatorName, setCreatorName] = useState("");
 
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
   const [resourceModalOpen, setResourceModalOpen] = useState(false);
@@ -66,218 +66,93 @@ export default function ProgramDetail() {
   });
 
   /* ===============================
-     FETCH DATA
-  =============================== */
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
+     FETCH ALL DATA
+  ================================= */
+  const fetchAllData = async () => {
+    if (!id) return;
 
-      const { data: programData } = await supabase
-        .from("programs")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (programData) {
-        const formatted = {
-          ...programData,
-          title: programData.title || programData.disaster_type,
-          location: {
-            lat: programData.lat,
-            lng: programData.lng,
-            name: programData.location_name || "Unknown location",
-          },
-        };
-
-        setProgram(formatted);
-
-        if (programData.created_by) {
-          const { data: creator } = await supabase
-            .from("profiles")
-            .select("name")
-            .eq("id", programData.created_by)
-            .single();
-
-          if (creator) setCreatorName(creator.name);
-        }
-      }
-
-      const { data: pv } = await supabase
-        .from("program_volunteers")
-        .select("volunteer_id")
-        .eq("program_id", id);
-
-      if (pv?.length) {
-        const ids = pv.map((v) => v.volunteer_id);
-
-        const { data: volunteersData } = await supabase
-          .from("profiles")
-          .select("*")
-          .in("id", ids);
-
-        if (volunteersData) {
-          setVolunteers(
-            volunteersData.map((v) => ({
-              id: v.id,
-              name: v.name,
-              phone: v.phone,
-              location: v.location,
-              skills: [],
-              availability: "available",
-            })),
-          );
-        }
-
-        if (user) {
-          const joinedCheck = pv.some((v) => v.volunteer_id === user.id);
-          setJoined(joinedCheck);
-        }
-      }
-
-      const { data: rr } = await supabase
-        .from("resource_requests")
-        .select("*")
-        .eq("program_id", id);
-
-      if (rr) setResourceRequests(rr);
-    };
-
-    fetchData();
-  }, [id, user]);
-
-  /* ===============================
-     AUTO REMINDER EVERY 10 MIN
-  =============================== */
-  useEffect(() => {
-    if (!program) return;
-
-    const interval = setInterval(async () => {
-      const { data: pending } = await supabase
-        .from("resource_requests")
-        .select("*")
-        .eq("program_id", program.id)
-        .eq("status", "pending");
-
-      if (!pending) return;
-
-      for (const r of pending) {
-        const diff =
-          Date.now() - new Date(r.last_notified_at || r.created_at).getTime();
-
-        if (diff > 10 * 60 * 1000) {
-          const { data: volunteers } = await supabase
-            .from("program_volunteers")
-            .select("volunteer_id")
-            .eq("program_id", program.id);
-
-          if (volunteers?.length) {
-            const payload = volunteers.map((v) => ({
-              user_id: v.volunteer_id,
-              program_id: program.id,
-              message: `Reminder: Resource needed — ${r.item_name}`,
-              type: "resource_request",
-              resource_request_id: r.id,
-            }));
-
-            await supabase.from("notifications").insert(payload);
-          }
-
-          await supabase
-            .from("resource_requests")
-            .update({
-              last_notified_at: new Date().toISOString(),
-            })
-            .eq("id", r.id);
-        }
-      }
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [program]);
-
-  /* ===============================
-     JOIN PROGRAM
-  =============================== */
-  const handleJoinProgram = async () => {
-    if (!user) return;
-
-    await supabase.from("program_volunteers").insert({
-      program_id: program.id,
-      volunteer_id: user.id,
-    });
-
-    setJoined(true);
-  };
-
-  /* ===============================
-     RESOURCE REQUEST
-  =============================== */
-  const handleResourceRequest = async () => {
-    if (!user) return;
-
-    if (!joined) {
-      alert("You must join the program first");
-      return;
-    }
-
-    const { data: existing } = await supabase
-      .from("resource_requests")
-      .select("created_at")
-      .eq("program_id", program.id)
-      .eq("item_name", resourceForm.type)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) {
-      const diff = Date.now() - new Date(existing.created_at).getTime();
-
-      if (diff < 10 * 60 * 1000) {
-        alert("This resource was already requested recently");
-        return;
-      }
-    }
-
-    const { data: request } = await supabase
-      .from("resource_requests")
-      .insert({
-        program_id: program.id,
-        requested_by: user.id,
-        item_name: resourceForm.type,
-        status: "pending",
-        last_notified_at: new Date().toISOString(),
-      })
-      .select()
+    // PROGRAM
+    const { data: programData } = await supabase
+      .from("programs")
+      .select("*")
+      .eq("id", id)
       .single();
 
-    if (!request) return;
+    if (programData) {
+      const formatted = {
+        ...programData,
+        title: programData.title || programData.disaster_type,
+        location: {
+          lat: programData.lat,
+          lng: programData.lng,
+          name: programData.location_name || "Unknown location",
+        },
+      };
 
-    const { data: volunteers } = await supabase
-      .from("program_volunteers")
-      .select("volunteer_id")
-      .eq("program_id", program.id);
+      setProgram(formatted);
 
-    if (volunteers?.length) {
-      const payload = volunteers.map((v) => ({
-        user_id: v.volunteer_id,
-        program_id: program.id,
-        message: `Resource requested: ${resourceForm.type}`,
-        type: "resource_request",
-        resource_request_id: request.id,
-      }));
+      // CREATOR NAME
+      if (programData.created_by) {
+        const { data: creator } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", programData.created_by)
+          .single();
 
-      await supabase.from("notifications").insert(payload);
+        if (creator) setCreatorName(creator.name);
+      }
     }
 
-    alert("Request sent to volunteers");
+    // VOLUNTEERS
+    const { data: pv } = await supabase
+      .from("program_volunteers")
+      .select("volunteer_id")
+      .eq("program_id", id);
 
-    setResourceModalOpen(false);
-    setResourceForm({ type: "" });
+    if (pv?.length) {
+      const ids = pv.map((v) => v.volunteer_id);
+
+      const { data: volunteersData } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", ids);
+
+      if (volunteersData) {
+        setVolunteers(
+          volunteersData.map((v) => ({
+            id: v.id,
+            name: v.name,
+            phone: v.phone,
+            location: v.location,
+            skills: [],
+            availability: "available",
+          })),
+        );
+      }
+
+      if (user) {
+        const hasJoined = pv.some((v) => v.volunteer_id === user.id);
+        setJoined(hasJoined);
+      }
+    } else {
+      setVolunteers([]);
+      setJoined(false);
+    }
+
+    // RESOURCE REQUESTS
+    const { data: rr } = await supabase
+      .from("resource_requests")
+      .select("*")
+      .eq("program_id", id)
+      .order("created_at", { ascending: false });
+
+    if (rr) setResourceRequests(rr);
   };
 
-  /* ===============================
-     CONDITIONAL RENDER (SAFE NOW)
-  =============================== */
+  useEffect(() => {
+    fetchAllData();
+  }, [id, user]);
+
   if (!program) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -286,6 +161,70 @@ export default function ProgramDetail() {
     );
   }
 
+  /* ===============================
+     JOIN PROGRAM
+  ================================= */
+  const handleJoinProgram = async () => {
+    if (!user) return;
+
+    await supabase.from("program_volunteers").insert({
+      program_id: program.id,
+      volunteer_id: user.id,
+    });
+
+    await fetchAllData();
+  };
+
+  /* ===============================
+     RESOURCE REQUEST + NOTIFICATION 🔥
+  ================================= */
+  const handleResourceRequest = async () => {
+    if (!user) return;
+
+    // 1️⃣ CREATE RESOURCE REQUEST
+    const { data: requestData, error } = await supabase
+      .from("resource_requests")
+      .insert({
+        program_id: program.id,
+        requested_by: user.id,
+        item_name: resourceForm.type,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (error || !requestData) {
+      alert("Failed to create request");
+      return;
+    }
+
+    // 2️⃣ NOTIFY ALL VOLUNTEERS IN PROGRAM 🔥
+    const { data: volunteers } = await supabase
+      .from("program_volunteers")
+      .select("volunteer_id")
+      .eq("program_id", program.id);
+
+    if (volunteers?.length) {
+      const notifications = volunteers.map((v) => ({
+        user_id: v.volunteer_id,
+        program_id: program.id,
+        message: `Resource needed — ${resourceForm.type}`,
+        type: "resource_request",
+        resource_request_id: requestData.id,
+      }));
+
+      await supabase.from("notifications").insert(notifications);
+    }
+
+    setResourceModalOpen(false);
+    setResourceForm({ type: "" });
+
+    await fetchAllData();
+  };
+
+  /* ===============================
+     UI
+  ================================= */
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
@@ -299,14 +238,17 @@ export default function ProgramDetail() {
           Back
         </Button>
 
+        {/* HEADER */}
         <div className="bg-card border border-border rounded-xl p-6 mb-6">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <SeverityBadge severity={program.severity} />
+
                 <span className="text-sm text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
                   {program.disaster_type}
                 </span>
+
                 <span className="text-sm px-2 py-0.5 rounded-full bg-success/10 text-success">
                   {program.status}
                 </span>
@@ -342,18 +284,23 @@ export default function ProgramDetail() {
           </div>
         </div>
 
+        {/* MAIN GRID */}
         <div className="grid lg:grid-cols-3 gap-6">
+          {/* LEFT */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-card border border-border rounded-xl p-4">
               <h2 className="font-semibold mb-4">Program Area</h2>
 
               <DisasterMap
                 programs={[program]}
+                volunteers={[]}
                 className="h-[250px]"
+                showControls={false}
                 interactive={false}
               />
             </div>
 
+            {/* JOIN */}
             <div className="bg-card border border-border rounded-xl p-4">
               {!joined ? (
                 <Button className="w-full" onClick={handleJoinProgram}>
@@ -368,6 +315,7 @@ export default function ProgramDetail() {
               )}
             </div>
 
+            {/* RESOURCES */}
             <div className="bg-card border border-border rounded-xl p-4">
               <div className="flex justify-between mb-4">
                 <h2 className="font-semibold">Resource Requests</h2>
@@ -394,8 +342,10 @@ export default function ProgramDetail() {
             </div>
           </div>
 
+          {/* VOLUNTEERS */}
           <div className="bg-card border border-border rounded-xl p-4">
             <h2 className="font-semibold mb-4">Active Volunteers</h2>
+
             <VolunteerList volunteers={volunteers} maxDisplay={8} />
           </div>
         </div>
@@ -406,6 +356,7 @@ export default function ProgramDetail() {
         onOpenChange={setEmergencyModalOpen}
       />
 
+      {/* RESOURCE MODAL */}
       <Dialog open={resourceModalOpen} onOpenChange={setResourceModalOpen}>
         <DialogContent>
           <DialogHeader>

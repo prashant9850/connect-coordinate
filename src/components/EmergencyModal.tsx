@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogOverlay, // ✅ IMPORTANT
+  DialogOverlay,
 } from "@/components/ui/dialog";
 import {
   Heart,
@@ -19,19 +19,17 @@ import {
   Check,
   MapPin,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 interface EmergencyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit?: (type: EmergencyType) => void;
+  programId?: string;
 }
 
-const emergencyTypes: {
-  type: EmergencyType;
-  icon: React.ElementType;
-  label: string;
-  description: string;
-}[] = [
+const emergencyTypes = [
   {
     type: "medical",
     icon: Heart,
@@ -62,26 +60,93 @@ const emergencyTypes: {
     label: "Other Emergency",
     description: "Any other urgent situation",
   },
-];
+] as const;
 
 export function EmergencyModal({
   open,
   onOpenChange,
   onSubmit,
+  programId,
 }: EmergencyModalProps) {
+  const { user } = useAuth();
+
   const [selectedType, setSelectedType] = useState<EmergencyType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  /* ======================================
+     🌍 CONVERT LAT/LNG → ADDRESS
+  ====================================== */
+  const getAddress = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      );
+      const data = await res.json();
+      return data.display_name || "Unknown location";
+    } catch {
+      return "Unknown location";
+    }
+  };
+
+  /* ======================================
+     🚨 SEND EMERGENCY
+  ====================================== */
+  const sendEmergency = async (type: EmergencyType) => {
+    if (!user) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        const address = await getAddress(lat, lng);
+
+        /* 🔴 SAVE EMERGENCY */
+        const { data: emergency } = await supabase
+          .from("emergency_requests")
+          .insert({
+            program_id: programId,
+            lat,
+            lng,
+            request_type: type,
+            status: "pending",
+          })
+          .select()
+          .single();
+
+        /* 🔔 NOTIFY ALL USERS */
+        const { data: users } = await supabase.from("profiles").select("id");
+
+        if (users && emergency) {
+          const payload = users.map((u) => ({
+            user_id: u.id,
+            program_id: programId,
+            type: "emergency",
+            message: `🚨 ${type.toUpperCase()} emergency at ${address}`,
+            emergency_id: emergency.id,
+          }));
+
+          await supabase.from("notifications").insert(payload);
+        }
+
+        onSubmit?.(type);
+      },
+      () => {
+        alert("Location permission denied");
+      },
+    );
+  };
 
   const handleSubmit = () => {
     if (!selectedType) return;
 
     setIsSubmitting(true);
+    sendEmergency(selectedType);
 
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSuccess(true);
-      onSubmit?.(selectedType);
 
       setTimeout(() => {
         setIsSuccess(false);
@@ -93,11 +158,11 @@ export function EmergencyModal({
 
   const handleSkip = () => {
     setIsSubmitting(true);
+    sendEmergency("other");
 
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSuccess(true);
-      onSubmit?.("other");
 
       setTimeout(() => {
         setIsSuccess(false);
@@ -109,10 +174,8 @@ export function EmergencyModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* 🌑 DARK + BLUR BACKGROUND */}
       <DialogOverlay className="bg-black/70 backdrop-blur-md z-[9999]" />
 
-      {/* 🚨 MODAL CONTENT */}
       <DialogContent className="sm:max-w-md z-[10000]">
         {isSuccess ? (
           <div className="py-8 text-center">
@@ -138,13 +201,11 @@ export function EmergencyModal({
               </DialogDescription>
             </DialogHeader>
 
-            {/* 📍 Location Notice */}
             <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-muted text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" />
               <span>Location will be shared automatically</span>
             </div>
 
-            {/* 🚑 Emergency Options */}
             <div className="grid gap-2 py-4">
               {emergencyTypes.map(
                 ({ type, icon: Icon, label, description }) => (
@@ -180,7 +241,6 @@ export function EmergencyModal({
               )}
             </div>
 
-            {/* 🔘 Buttons */}
             <div className="flex gap-3">
               <Button
                 variant="outline"

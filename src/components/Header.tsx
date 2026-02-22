@@ -15,7 +15,6 @@ import { useState, useEffect } from "react";
 import { EmergencyButton } from "./EmergencyButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { useRef } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,7 +31,8 @@ export function Header({ onEmergencyClick }: any) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const channelRef = useRef<any>(null);
+  // 🚨 NEW — emergency indicator
+  const [hasEmergency, setHasEmergency] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -40,11 +40,34 @@ export function Header({ onEmergencyClick }: any) {
     navigate("/");
   };
 
+  /* ===============================
+     🚨 CHECK FOR ACTIVE EMERGENCIES
+  ================================= */
+  useEffect(() => {
+    const checkEmergency = async () => {
+      const { data } = await supabase
+        .from("emergency_requests")
+        .select("id")
+        .eq("status", "pending")
+        .limit(1);
+
+      setHasEmergency(!!data?.length);
+    };
+
+    // initial check
+    checkEmergency();
+
+    // auto-refresh every 5 sec
+    const interval = setInterval(checkEmergency, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {/* LOGO */}
           <Link to="/" className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-primary">
               <AlertTriangle className="h-5 w-5 text-primary-foreground" />
@@ -54,7 +77,7 @@ export function Header({ onEmergencyClick }: any) {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* DESKTOP NAV */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map(({ href, label, icon: Icon }) => (
               <Link
@@ -73,25 +96,32 @@ export function Header({ onEmergencyClick }: any) {
             ))}
           </nav>
 
-          {/* Right Side */}
+          {/* RIGHT SIDE */}
           <div className="flex items-center gap-3 relative">
-            {/* SOS Button */}
+            {/* SOS BUTTON */}
             <EmergencyButton
               size="default"
               onClick={onEmergencyClick}
               showPulse={false}
             />
 
-            {/* 🔔 Notifications — only when logged in */}
+            {/* 🔔 NOTIFICATIONS */}
             {user && (
               <Link to="/notifications">
-                <button className="relative p-2 rounded-lg hover:bg-muted">
+                <button
+                  className={cn(
+                    "relative p-2 rounded-lg transition",
+                    hasEmergency
+                      ? "bg-red-600 text-white animate-pulse"
+                      : "hover:bg-muted",
+                  )}
+                >
                   <Bell className="h-5 w-5" />
                 </button>
               </Link>
             )}
 
-            {/* 🔹 Logged In User */}
+            {/* USER PROFILE */}
             {user && profile ? (
               <div className="relative">
                 <button
@@ -102,8 +132,7 @@ export function Header({ onEmergencyClick }: any) {
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 mt-3 w-72 bg-card border border-border rounded-xl shadow-lg z-50 p-5 animate-in fade-in slide-in-from-top-2 duration-150">
-                    {/* Name & Email */}
+                  <div className="absolute right-0 mt-3 w-72 bg-card border border-border rounded-xl shadow-lg z-50 p-5">
                     <div className="mb-3">
                       <p className="font-semibold text-foreground text-sm">
                         {profile.name}
@@ -115,22 +144,18 @@ export function Header({ onEmergencyClick }: any) {
 
                     <div className="border-t border-border my-3" />
 
-                    {/* Role */}
                     <p className="text-xs text-muted-foreground capitalize mb-2">
                       Role: {profile.role}
                     </p>
 
-                    {/* Phone */}
                     {profile.phone && (
                       <p className="text-xs text-muted-foreground mb-2">
                         Phone: {profile.phone}
                       </p>
                     )}
 
-                    {/* Skills */}
                     {profile.role === "volunteer" &&
-                      profile.skills &&
-                      profile.skills.length > 0 && (
+                      profile.skills?.length > 0 && (
                         <div className="mt-2">
                           <p className="text-xs text-muted-foreground mb-2">
                             Skills:
@@ -139,7 +164,7 @@ export function Header({ onEmergencyClick }: any) {
                             {profile.skills.map((skill: string) => (
                               <span
                                 key={skill}
-                                className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground capitalize"
+                                className="text-xs px-2 py-1 rounded-full bg-secondary"
                               >
                                 {skill.replace("_", " ")}
                               </span>
@@ -162,7 +187,6 @@ export function Header({ onEmergencyClick }: any) {
                 )}
               </div>
             ) : (
-              /* 🔹 Not Logged In */
               <div className="hidden md:flex items-center gap-2">
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/login">Login</Link>
@@ -173,7 +197,7 @@ export function Header({ onEmergencyClick }: any) {
               </div>
             )}
 
-            {/* Mobile Menu Toggle */}
+            {/* MOBILE MENU BUTTON */}
             <button
               className="md:hidden p-2 rounded-lg hover:bg-muted"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

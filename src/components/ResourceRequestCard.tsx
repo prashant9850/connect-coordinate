@@ -1,162 +1,105 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import type { Volunteer } from "@/types";
-import { User, Phone, MapPin } from "lucide-react";
-import {
-  Tooltip,
-  TooltipProvider,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
+import { Package, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface ResourceRequestCardProps {
-  volunteers: Volunteer[];
-  maxDisplay?: number;
+  request: any;
   className?: string;
-  limited?: boolean;
 }
 
-const availabilityStyles = {
-  available: "bg-success text-success-foreground",
-  busy: "bg-severity-orange text-success-foreground",
-  offline: "bg-muted text-muted-foreground",
-};
-
-const skillColors = [
-  "bg-primary/10 text-primary",
-  "bg-severity-orange-bg text-severity-orange",
-  "bg-severity-yellow-bg text-severity-yellow",
-  "bg-success/10 text-success",
-];
-
 export function ResourceRequestCard({
-  volunteers,
-  maxDisplay = 5,
+  request,
   className,
-  limited = false,
 }: ResourceRequestCardProps) {
-  const displayedVolunteers = volunteers.slice(0, maxDisplay);
-  const remainingCount = volunteers.length - maxDisplay;
+  const [open, setOpen] = useState(false);
+  const [customText, setCustomText] = useState("");
 
-  if (volunteers.length === 0) {
-    return (
-      <div className={cn("text-center py-8", className)}>
-        <User className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
-        <p className="text-muted-foreground">No volunteers yet</p>
-      </div>
-    );
-  }
+  if (!request) return null;
+
+  const handleSave = () => {
+    if (!customText.trim()) return;
+
+    // 🔥 For now just log — you can connect to Supabase later
+    console.log("Custom requirement:", customText);
+
+    alert("Custom requirement saved");
+    setCustomText("");
+  };
 
   return (
-    <div className={cn("space-y-3", className)}>
-      {displayedVolunteers.map((volunteer, index) => (
-        <div
-          key={volunteer.id}
-          className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-          style={{ animationDelay: `${index * 50}ms` }}
-        >
-          {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <User className="h-5 w-5 text-primary" />
-            </div>
+    <>
+      {/* ===== CARD ===== */}
+      <div
+        onClick={() => setOpen(true)}
+        className={cn(
+          "cursor-pointer p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition",
+          className,
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <Package className="h-5 w-5 text-primary" />
 
-            {!limited && (
-              <span
-                className={cn(
-                  "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card",
-                  volunteer.availability === "available" && "bg-success",
-                  volunteer.availability === "busy" && "bg-severity-orange",
-                  volunteer.availability === "offline" && "bg-muted-foreground",
-                )}
-              />
-            )}
+          <div className="flex-1">
+            <p className="font-medium capitalize">{request.item_name}</p>
+
+            <p className="text-xs text-muted-foreground capitalize">
+              {request.status}
+            </p>
           </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h4 className="font-medium text-foreground truncate">
-                {volunteer.name}
-              </h4>
-
-              {!limited && (
-                <span
-                  className={cn(
-                    "text-xs px-1.5 py-0.5 rounded-full capitalize",
-                    availabilityStyles[volunteer.availability],
-                  )}
-                >
-                  {volunteer.availability}
-                </span>
-              )}
-            </div>
-
-            {!limited && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {volunteer.skills.slice(0, 2).map((skill, sIndex) => (
-                  <span
-                    key={skill}
-                    className={cn(
-                      "text-xs px-1.5 py-0.5 rounded capitalize",
-                      skillColors[sIndex % skillColors.length],
-                    )}
-                  >
-                    {skill.replace("_", " ")}
-                  </span>
-                ))}
-
-                {volunteer.skills.length > 2 && (
-                  <span className="text-xs text-muted-foreground">
-                    +{volunteer.skills.length - 2}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Contact */}
-          {!limited && (
-            <div className="flex-shrink-0 flex gap-2">
-              {volunteer.phone && (
-                <a href={`tel:${volunteer.phone}`}>
-                  <button
-                    className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
-                    title="Call"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </button>
-                </a>
-              )}
-
-              {volunteer.location && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className="p-2 rounded-lg bg-card hover:bg-primary hover:text-primary-foreground transition-colors"
-                        title="Location"
-                      >
-                        <MapPin className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {typeof volunteer.location === "string"
-                        ? volunteer.location
-                        : `${volunteer.location.lat}, ${volunteer.location.lng}`}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          )}
+          <Clock className="h-4 w-4 text-muted-foreground" />
         </div>
-      ))}
+      </div>
 
-      {remainingCount > 0 && (
-        <button className="w-full py-2 text-sm text-primary hover:text-primary/80 font-medium">
-          View {remainingCount} more volunteers
-        </button>
-      )}
-    </div>
+      {/* ===== POPUP ===== */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogOverlay className="bg-black/70 backdrop-blur-md z-[9999]" />
+
+        <DialogContent className="sm:max-w-md z-[10000]">
+          <h3 className="text-xl font-semibold mb-4">
+            Resource Request Details
+          </h3>
+
+          <div className="space-y-3">
+            <p>
+              <strong>Item:</strong>{" "}
+              <span className="capitalize">{request.item_name}</span>
+            </p>
+
+            <p>
+              <strong>Status:</strong>{" "}
+              <span className="capitalize">{request.status}</span>
+            </p>
+
+            <p>
+              <strong>Requested At:</strong>{" "}
+              {new Date(request.created_at).toLocaleString()}
+            </p>
+          </div>
+
+          {/* 🔥 NEW: CUSTOM REQUIREMENT INPUT */}
+          <div className="mt-6 space-y-3">
+            <p className="font-medium">Need something specific?</p>
+
+            <Input
+              placeholder="Enter additional requirement..."
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+            />
+
+            <Button
+              onClick={handleSave}
+              disabled={!customText.trim()}
+              className="w-full"
+            >
+              Save Requirement
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
